@@ -16,6 +16,8 @@ backend/prisma/migrations/dev.db*
 
 # Per-user Claude Code config (committed: launch.json; ignored: settings.local.json)
 .claude/settings.local.json
+.claude/render.env
+.claude/*.secret
 
 # Demo/dev artifacts
 temporary screenshots/
