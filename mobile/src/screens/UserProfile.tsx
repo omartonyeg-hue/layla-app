@@ -2,20 +2,22 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { color, radius, fontFamily } from '../theme/tokens';
 import { Avatar, Micro, Body, BackButton, Button, VerifiedBadge, PostCard } from '../components';
 import { api, ApiError, type PublicProfile, type Post, type ProfileParty } from '../lib/api';
+import { useSession } from '../lib/AuthContext';
+import type { CommunityStackParamList } from '../navigation/types';
 
-type Props = {
-  token: string;
-  userId: string;
-  onBack: () => void;
-};
+type Props = NativeStackScreenProps<CommunityStackParamList, 'UserProfile'>;
 
 const COVER_HEIGHT = 160;
 const AVATAR_SIZE = 96;
 
-export const UserProfile: React.FC<Props> = ({ token, userId, onBack }) => {
+export const UserProfile: React.FC<Props> = ({ navigation, route }) => {
+  const { token } = useSession();
+  const { userId } = route.params;
+  const onBack = () => navigation.goBack();
   const [user, setUser] = useState<PublicProfile | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [hostedParties, setHostedParties] = useState<ProfileParty[]>([]);
@@ -180,7 +182,23 @@ export const UserProfile: React.FC<Props> = ({ token, userId, onBack }) => {
             <View style={{ marginTop: 24 }}>
               <Micro size="sm" color={color.violet}>RECENT POSTS</Micro>
               <View style={{ gap: 12, marginTop: 10 }}>
-                {posts.map((p) => <PostCard key={p.id} post={p} />)}
+                {posts.map((p) => (
+                  <PostCard
+                    key={p.id}
+                    post={p}
+                    onToggleLike={async (postId) => {
+                      const res = await api.togglePostLike(token, postId);
+                      setPosts((prev) =>
+                        prev.map((x) =>
+                          x.id === postId
+                            ? { ...x, likedByMe: res.liked, likeCount: res.likeCount }
+                            : x,
+                        ),
+                      );
+                    }}
+                    onOpenComments={(postId) => navigation.navigate('Comments', { postId })}
+                  />
+                ))}
               </View>
             </View>
           ) : null}

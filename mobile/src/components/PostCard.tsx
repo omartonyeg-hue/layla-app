@@ -1,17 +1,22 @@
-import React from 'react';
-import { View, Text, Pressable } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { View, Text, Pressable, Animated, Share } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Path } from 'react-native-svg';
 import { color, radius, fontFamily } from '../theme/tokens';
 import { Avatar, Micro, Body, VerifiedBadge, StarRating } from './index';
 import { resolveGradient } from '../lib/gradients';
+import { haptic } from '../lib/haptics';
 import type { Post } from '../lib/api';
 
-// Unified feed item. Renders review (stars + vibes + venue card), plain text,
-// or photo (deferred) depending on `kind`.
+// Unified feed item. Review / Mood / Text share the same author + footer; only
+// the body swaps. Like is optimistic — we update count immediately and reconcile
+// with the server response (which also returns `liked`, for idempotency safety).
 
 type Props = {
   post: Post;
   onPressAuthor?: () => void;
+  onToggleLike: (postId: string, nextLiked: boolean) => Promise<void>;
+  onOpenComments: (postId: string) => void;
 };
 
 const timeAgo = (iso: string) => {
@@ -30,14 +35,43 @@ const ContextKicker: React.FC<{ post: Post }> = ({ post }) => {
   if (post.kind === 'REVIEW' && post.venueEvent) {
     return <Micro size="xs" color={color.violet}>REVIEWED {post.venueEvent.venue.toUpperCase()}</Micro>;
   }
+  if (post.kind === 'MOOD' && post.venueEvent) {
+    return <Micro size="xs" color={color.gold[500]}>AT {post.venueEvent.venue.toUpperCase()}</Micro>;
+  }
   if (post.venueEvent) {
     return <Micro size="xs" color={color.text.muted}>📍 {post.venueEvent.venue.toUpperCase()}</Micro>;
   }
   return null;
 };
 
+const MoodCanvas: React.FC<{ gradientKey: string; emoji: string }> = ({ gradientKey, emoji }) => {
+  const g = resolveGradient(gradientKey);
+  return (
+    <View
+      style={{
+        marginTop: 12,
+        aspectRatio: 1.2,
+        borderRadius: radius.lg,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: color.stroke.soft,
+      }}
+    >
+      <LinearGradient
+        colors={g.colors}
+        start={g.start}
+        end={g.end}
+        style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+      >
+        <Text style={{ fontSize: 96, lineHeight: 112 }}>{emoji}</Text>
+      </LinearGradient>
+    </View>
+  );
+};
+
 const VenuePreview: React.FC<{ post: Post }> = ({ post }) => {
   if (!post.venueEvent) return null;
+  if (post.kind === 'MOOD') return null; // already surfaced via canvas + kicker
   const g = resolveGradient(post.venueEvent.gradient);
   return (
     <View
@@ -72,8 +106,60 @@ const VenuePreview: React.FC<{ post: Post }> = ({ post }) => {
   );
 };
 
-export const PostCard: React.FC<Props> = ({ post, onPressAuthor }) => {
+// Filled heart SVG for a cleaner like state than a text ♥.
+const HeartIcon: React.FC<{ filled: boolean; size?: number }> = ({ filled, size = 20 }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Path
+      d="M12 21s-7.5-4.8-9.6-9.6C1.2 8.4 3.4 5 6.8 5c2.2 0 3.8 1.4 5.2 3 1.4-1.6 3-3 5.2-3 3.4 0 5.6 3.4 4.4 6.4C19.5 16.2 12 21 12 21z"
+      fill={filled ? color.rose : 'transparent'}
+      stroke={filled ? color.rose : color.text.secondary}
+      strokeWidth={filled ? 0 : 1.8}
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+export const PostCard: React.FC<Props> = ({ post, onPressAuthor, onToggleLike, onOpenComments }) => {
   const authorColor = post.author.avatarColor ?? color.gold[500];
+  const [liked, setLiked] = useState(post.likedByMe);
+  const [likeCount, setLikeCount] = useState(post.likeCount);
+  const [commentCount, setCommentCount] = useState(post.commentCount);
+  const heartScale = useRef(new Animated.Value(1)).current;
+
+  // Keep local state in sync if feed reloads with fresh counts.
+  React.useEffect(() => {
+    setLiked(post.likedByMe);
+    setLikeCount(post.likeCount);
+    setCommentCount(post.commentCount);
+  }, [post.id, post.likedByMe, post.likeCount, post.commentCount]);
+
+  const toggleLike = async () => {
+    const next = !liked;
+    setLiked(next);
+    setLikeCount((c) => c + (next ? 1 : -1));
+    haptic.bump();
+    Animated.sequence([
+      Animated.spring(heartScale, { toValue: 1.35, friction: 4, tension: 180, useNativeDriver: true }),
+      Animated.spring(heartScale, { toValue: 1, friction: 5, tension: 160, useNativeDriver: true }),
+    ]).start();
+    try {
+      await onToggleLike(post.id, next);
+    } catch {
+      // revert on failure
+      setLiked(!next);
+      setLikeCount((c) => c + (next ? -1 : 1));
+    }
+  };
+
+  const onShare = async () => {
+    haptic.tap();
+    const who = post.author.name ?? 'Someone';
+    const body = post.text ?? (post.kind === 'MOOD' ? `${post.emoji ?? '🪩'} vibe` : 'a post');
+    try {
+      await Share.share({ message: `${who} on LAYLA — "${body}"` });
+    } catch { /* user cancelled */ }
+  };
+
   return (
     <View
       style={{
@@ -86,8 +172,13 @@ export const PostCard: React.FC<Props> = ({ post, onPressAuthor }) => {
     >
       {/* Author row */}
       <Pressable
-        onPress={onPressAuthor}
-        style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}
+        onPress={onPressAuthor ? () => { haptic.tap(); onPressAuthor(); } : undefined}
+        style={({ pressed }) => ({
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 10,
+          opacity: pressed ? 0.7 : 1,
+        })}
       >
         <Avatar name={post.author.name ?? 'U'} color={authorColor} size={38} />
         <View style={{ flex: 1 }}>
@@ -127,6 +218,10 @@ export const PostCard: React.FC<Props> = ({ post, onPressAuthor }) => {
         </View>
       ) : null}
 
+      {post.kind === 'MOOD' && post.gradient && post.emoji ? (
+        <MoodCanvas gradientKey={post.gradient} emoji={post.emoji} />
+      ) : null}
+
       {post.text ? (
         <Body color={color.text.primary} style={{ marginTop: 10, lineHeight: 20 }}>
           {post.text}
@@ -140,36 +235,57 @@ export const PostCard: React.FC<Props> = ({ post, onPressAuthor }) => {
         style={{
           flexDirection: 'row',
           alignItems: 'center',
-          gap: 18,
+          gap: 22,
           marginTop: 14,
           paddingTop: 12,
           borderTopWidth: 1,
           borderTopColor: color.stroke.soft,
         }}
       >
-        <FooterAction icon="♡" label="Like" />
-        <FooterAction icon="💬" label="Comment" />
-        <FooterAction icon="↗" label="Share" />
+        <Pressable onPress={toggleLike} hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Animated.View style={{ transform: [{ scale: heartScale }] }}>
+            <HeartIcon filled={liked} />
+          </Animated.View>
+          <Text
+            style={{
+              color: liked ? color.rose : color.text.secondary,
+              fontSize: 12,
+              fontWeight: '700',
+              fontFamily: fontFamily.body,
+              minWidth: 10,
+            }}
+          >
+            {likeCount > 0 ? likeCount : ''}
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => {
+            haptic.tap();
+            onOpenComments(post.id);
+          }}
+          hitSlop={8}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
+        >
+          <Text style={{ color: color.text.secondary, fontSize: 17, lineHeight: 20 }}>💬</Text>
+          <Text
+            style={{
+              color: color.text.secondary,
+              fontSize: 12,
+              fontWeight: '700',
+              fontFamily: fontFamily.body,
+            }}
+          >
+            {commentCount > 0 ? commentCount : ''}
+          </Text>
+        </Pressable>
+
+        <Pressable onPress={onShare} hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
+          <Text style={{ color: color.text.secondary, fontSize: 17, lineHeight: 20 }}>↗</Text>
+        </Pressable>
       </View>
     </View>
   );
 };
-
-const FooterAction: React.FC<{ icon: string; label: string }> = ({ icon, label }) => (
-  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-    <Text style={{ color: color.text.secondary, fontSize: 15 }}>{icon}</Text>
-    <Text
-      style={{
-        color: color.text.secondary,
-        fontSize: 11,
-        fontWeight: '700',
-        letterSpacing: 0.5,
-        fontFamily: fontFamily.body,
-      }}
-    >
-      {label.toUpperCase()}
-    </Text>
-  </View>
-);
 
 export default PostCard;

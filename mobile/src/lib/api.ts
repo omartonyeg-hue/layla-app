@@ -175,6 +175,52 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  createMoodPost: (
+    token: string,
+    data: { gradient: string; emoji: string; text?: string; venueEventId?: string },
+  ) =>
+    request<{ post: Post }>('/community/posts', {
+      method: 'POST',
+      token,
+      body: JSON.stringify(data),
+    }),
+
+  togglePostLike: (token: string, postId: string) =>
+    request<{ liked: boolean; likeCount: number }>(`/community/posts/${postId}/like`, {
+      method: 'POST',
+      token,
+      body: '{}',
+    }),
+
+  listComments: (token: string, postId: string) =>
+    request<{ comments: PostComment[] }>(`/community/posts/${postId}/comments`, { token }),
+
+  addComment: (token: string, postId: string, text: string) =>
+    request<{ comment: PostComment; commentCount: number }>(
+      `/community/posts/${postId}/comments`,
+      { method: 'POST', token, body: JSON.stringify({ text }) },
+    ),
+
+  listStories: (token: string) =>
+    request<{ groups: StoryGroup[] }>('/community/stories', { token }),
+
+  createStory: (
+    token: string,
+    data: { gradient: string; emoji: string; caption?: string },
+  ) =>
+    request<{ story: StoryWithAuthor }>('/community/stories', {
+      method: 'POST',
+      token,
+      body: JSON.stringify(data),
+    }),
+
+  markStoryViewed: (token: string, storyId: string) =>
+    request<{ ok: true }>(`/community/stories/${storyId}/view`, {
+      method: 'POST',
+      token,
+      body: '{}',
+    }),
+
   getPublicProfile: (token: string, userId: string) =>
     request<{
       user: PublicProfile;
@@ -334,7 +380,7 @@ export type RideRating = {
   createdAt: string;
 };
 
-export type PostKind = 'REVIEW' | 'PHOTO' | 'TEXT';
+export type PostKind = 'REVIEW' | 'MOOD' | 'PHOTO' | 'TEXT';
 
 export type PostAuthor = {
   id: string;
@@ -359,8 +405,50 @@ export type Post = {
   text: string | null;
   stars: number | null;
   vibes: string[];
+  gradient: string | null;
+  emoji: string | null;
   venueEvent: PostVenue | null;
   createdAt: string;
+  likeCount: number;
+  commentCount: number;
+  likedByMe: boolean;
+};
+
+export type PostComment = {
+  id: string;
+  postId: string;
+  authorId: string;
+  text: string;
+  createdAt: string;
+  author: PostAuthor;
+};
+
+export type StorySegment = {
+  id: string;
+  gradient: string;
+  emoji: string;
+  caption: string | null;
+  createdAt: string;
+  expiresAt: string;
+  seen: boolean;
+};
+
+export type StoryGroup = {
+  author: PostAuthor;
+  stories: StorySegment[];
+  allSeen: boolean;
+  latestAt: string | null;
+  isMe: boolean;
+};
+
+export type StoryWithAuthor = {
+  id: string;
+  author: PostAuthor;
+  gradient: string;
+  emoji: string;
+  caption: string | null;
+  createdAt: string;
+  expiresAt: string;
 };
 
 export type PublicProfile = {
