@@ -4,12 +4,11 @@ import {
   Text,
   Pressable,
   TextInput,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
+  Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { color, fontFamily, radius } from '../theme/tokens';
 import { Micro, Button, DisplayHeadline } from '../components';
@@ -18,6 +17,7 @@ import { useSession } from '../lib/AuthContext';
 import { useToast } from '../lib/toast';
 import { resolveGradient } from '../lib/gradients';
 import { haptic } from '../lib/haptics';
+import { useKeyboardHeight } from '../lib/useKeyboardHeight';
 import type { CommunityStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<CommunityStackParamList, 'MoodComposer'>;
@@ -37,6 +37,8 @@ const MAX_TEXT = 280;
 export const MoodComposer: React.FC<Props> = ({ navigation }) => {
   const { token } = useSession();
   const toast = useToast();
+  const insets = useSafeAreaInsets();
+  const keyboardHeight = useKeyboardHeight();
   const [events, setEvents] = useState<EventWithTiers[]>([]);
   const [venueId, setVenueId] = useState<string | null>(null);
   const [gradientKey, setGradientKey] = useState<string>('night');
@@ -71,12 +73,17 @@ export const MoodComposer: React.FC<Props> = ({ navigation }) => {
     }
   };
 
+  // Footer padding = max(keyboardHeight, safe-area bottom). POST button slides
+  // above the keyboard when any input is focused.
+  const footerPaddingBottom = keyboardHeight.interpolate({
+    inputRange: [0, insets.bottom, insets.bottom + 1, 10000],
+    outputRange: [Math.max(insets.bottom, 16), Math.max(insets.bottom, 16), insets.bottom + 1, 10000],
+    extrapolate: 'clamp',
+  });
+
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: color.bg.base }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <SafeAreaView style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: color.bg.base }}>
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingTop: 8 }}>
           <Pressable
             onPress={() => { haptic.tap(); navigation.goBack(); }}
@@ -103,7 +110,7 @@ export const MoodComposer: React.FC<Props> = ({ navigation }) => {
         </View>
 
         <ScrollView
-          contentContainerStyle={{ padding: 20, gap: 18 }}
+          contentContainerStyle={{ padding: 20, paddingBottom: 40, gap: 18 }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
@@ -245,12 +252,21 @@ export const MoodComposer: React.FC<Props> = ({ navigation }) => {
 
           {error ? <Text style={{ color: color.rose, fontSize: 13 }}>{error}</Text> : null}
         </ScrollView>
-
-        <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16, borderTopWidth: 1, borderTopColor: color.stroke.soft }}>
-          <Button variant="gold" loading={busy} onPress={submit}>POST →</Button>
-        </View>
       </SafeAreaView>
-    </KeyboardAvoidingView>
+
+      <Animated.View
+        style={{
+          paddingHorizontal: 20,
+          paddingTop: 12,
+          paddingBottom: footerPaddingBottom,
+          borderTopWidth: 1,
+          borderTopColor: color.stroke.soft,
+          backgroundColor: color.bg.base,
+        }}
+      >
+        <Button variant="gold" loading={busy} onPress={submit}>POST →</Button>
+      </Animated.View>
+    </View>
   );
 };
 

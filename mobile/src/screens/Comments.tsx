@@ -5,17 +5,17 @@ import {
   ScrollView,
   TextInput,
   Pressable,
-  KeyboardAvoidingView,
-  Platform,
   ActivityIndicator,
+  Animated,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { color, fontFamily, radius } from '../theme/tokens';
 import { Avatar, Micro } from '../components';
 import { api, ApiError, type PostComment } from '../lib/api';
 import { useSession } from '../lib/AuthContext';
 import { haptic } from '../lib/haptics';
+import { useKeyboardHeight } from '../lib/useKeyboardHeight';
 import type { CommunityStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<CommunityStackParamList, 'Comments'>;
@@ -36,6 +36,8 @@ const timeAgo = (iso: string) => {
 export const Comments: React.FC<Props> = ({ navigation, route }) => {
   const { postId } = route.params;
   const { token } = useSession();
+  const insets = useSafeAreaInsets();
+  const keyboardHeight = useKeyboardHeight();
   const [comments, setComments] = useState<PostComment[] | null>(null);
   const [text, setText] = useState('');
   const [posting, setPosting] = useState(false);
@@ -71,12 +73,18 @@ export const Comments: React.FC<Props> = ({ navigation, route }) => {
     }
   };
 
+  // Bottom padding = max(keyboardHeight, safe-area bottom). When keyboard is
+  // closed we respect the home-indicator inset; when open we push above the
+  // full keyboard frame (QuickType strip included).
+  const composerPaddingBottom = keyboardHeight.interpolate({
+    inputRange: [0, insets.bottom, insets.bottom + 1, 10000],
+    outputRange: [insets.bottom, insets.bottom, insets.bottom + 1, 10000],
+    extrapolate: 'clamp',
+  });
+
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: color.bg.base }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <SafeAreaView style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: color.bg.base }}>
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
         <View
           style={{
             flexDirection: 'row',
@@ -111,7 +119,8 @@ export const Comments: React.FC<Props> = ({ navigation, route }) => {
 
         <ScrollView
           ref={scrollRef}
-          contentContainerStyle={{ padding: 20, gap: 16 }}
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 24 }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
@@ -156,73 +165,75 @@ export const Comments: React.FC<Props> = ({ navigation, route }) => {
           )}
           {error ? <Text style={{ color: color.rose, fontSize: 13 }}>{error}</Text> : null}
         </ScrollView>
-
-        <View
-          style={{
-            flexDirection: 'row',
-            gap: 10,
-            paddingHorizontal: 16,
-            paddingTop: 10,
-            paddingBottom: 14,
-            borderTopWidth: 1,
-            borderTopColor: color.stroke.soft,
-            backgroundColor: color.bg.base,
-          }}
-        >
-          <TextInput
-            value={text}
-            onChangeText={(t) => setText(t.slice(0, MAX_COMMENT))}
-            placeholder="Add a comment…"
-            placeholderTextColor={color.text.muted}
-            multiline
-            style={{
-              flex: 1,
-              maxHeight: 100,
-              paddingHorizontal: 14,
-              paddingVertical: 10,
-              borderRadius: radius.pill,
-              backgroundColor: color.bg.surface,
-              borderWidth: 1,
-              borderColor: text.length > 0 ? color.violet : color.stroke.soft,
-              color: color.text.primary,
-              fontSize: 14,
-              fontFamily: fontFamily.body,
-            }}
-          />
-          <Pressable
-            onPress={submit}
-            disabled={!text.trim() || posting}
-            style={({ pressed }) => ({
-              paddingHorizontal: 16,
-              paddingVertical: 10,
-              borderRadius: radius.pill,
-              backgroundColor: text.trim() ? color.violet : color.bg.surface,
-              borderWidth: 1,
-              borderColor: text.trim() ? color.violet : color.stroke.soft,
-              opacity: pressed || !text.trim() ? 0.7 : 1,
-              alignItems: 'center',
-              justifyContent: 'center',
-              minWidth: 72,
-            })}
-          >
-            {posting ? (
-              <ActivityIndicator color={color.text.primary} size="small" />
-            ) : (
-              <Text
-                style={{
-                  color: text.trim() ? color.text.primary : color.text.muted,
-                  fontSize: 12,
-                  fontWeight: '800',
-                  letterSpacing: 0.6,
-                }}
-              >
-                POST
-              </Text>
-            )}
-          </Pressable>
-        </View>
       </SafeAreaView>
-    </KeyboardAvoidingView>
+
+      {/* Composer pinned above keyboard. Sits outside SafeAreaView so we
+          control the bottom padding ourselves (safe-area vs keyboard). */}
+      <Animated.View
+        style={{
+          flexDirection: 'row',
+          gap: 10,
+          paddingHorizontal: 16,
+          paddingTop: 10,
+          paddingBottom: composerPaddingBottom,
+          borderTopWidth: 1,
+          borderTopColor: color.stroke.soft,
+          backgroundColor: color.bg.base,
+        }}
+      >
+        <TextInput
+          value={text}
+          onChangeText={(t) => setText(t.slice(0, MAX_COMMENT))}
+          placeholder="Add a comment…"
+          placeholderTextColor={color.text.muted}
+          multiline
+          style={{
+            flex: 1,
+            maxHeight: 100,
+            paddingHorizontal: 14,
+            paddingVertical: 10,
+            borderRadius: radius.pill,
+            backgroundColor: color.bg.surface,
+            borderWidth: 1,
+            borderColor: text.length > 0 ? color.violet : color.stroke.soft,
+            color: color.text.primary,
+            fontSize: 14,
+            fontFamily: fontFamily.body,
+          }}
+        />
+        <Pressable
+          onPress={submit}
+          disabled={!text.trim() || posting}
+          style={({ pressed }) => ({
+            paddingHorizontal: 16,
+            paddingVertical: 10,
+            borderRadius: radius.pill,
+            backgroundColor: text.trim() ? color.violet : color.bg.surface,
+            borderWidth: 1,
+            borderColor: text.trim() ? color.violet : color.stroke.soft,
+            opacity: pressed || !text.trim() ? 0.7 : 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            minWidth: 72,
+          })}
+        >
+          {posting ? (
+            <ActivityIndicator color={color.text.primary} size="small" />
+          ) : (
+            <Text
+              style={{
+                color: text.trim() ? color.text.primary : color.text.muted,
+                fontSize: 12,
+                fontWeight: '800',
+                letterSpacing: 0.6,
+              }}
+            >
+              POST
+            </Text>
+          )}
+        </Pressable>
+      </Animated.View>
+    </View>
   );
 };
 

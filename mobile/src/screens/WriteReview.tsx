@@ -1,17 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, ScrollView, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, TextInput, ScrollView, Pressable, Animated } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { color, radius, fontFamily } from '../theme/tokens';
 import { Micro, Body, Button, DisplayHeadline, StarRating, VibeChip } from '../components';
-import { api, ApiError, type EventWithTiers, type Post } from '../lib/api';
+import { api, ApiError, type EventWithTiers } from '../lib/api';
+import { useSession } from '../lib/AuthContext';
+import { useToast } from '../lib/toast';
 import { resolveGradient } from '../lib/gradients';
+import { useKeyboardHeight } from '../lib/useKeyboardHeight';
+import type { CommunityStackParamList } from '../navigation/types';
 
-type Props = {
-  token: string;
-  onClose: () => void;
-  onPosted: (post: Post) => void;
-};
+type Props = NativeStackScreenProps<CommunityStackParamList, 'WriteReview'>;
 
 const VIBES = [
   'Great sound',
@@ -26,7 +27,16 @@ const VIBES = [
 
 const MAX_TEXT = 600;
 
-export const WriteReview: React.FC<Props> = ({ token, onClose, onPosted }) => {
+export const WriteReview: React.FC<Props> = ({ navigation }) => {
+  const { token } = useSession();
+  const toast = useToast();
+  const insets = useSafeAreaInsets();
+  const keyboardHeight = useKeyboardHeight();
+  const onClose = () => navigation.goBack();
+  const onPosted = () => {
+    toast.show({ message: 'Review posted to your circle', tone: 'violet', icon: '◆' });
+    navigation.goBack();
+  };
   const [events, setEvents] = useState<EventWithTiers[]>([]);
   const [venueId, setVenueId] = useState<string | null>(null);
   const [stars, setStars] = useState(0);
@@ -49,13 +59,13 @@ export const WriteReview: React.FC<Props> = ({ token, onClose, onPosted }) => {
     setBusy(true);
     setError(null);
     try {
-      const { post } = await api.createReview(token, {
+      await api.createReview(token, {
         stars,
         vibes,
         text: text.trim(),
         venueEventId: venueId ?? undefined,
       });
-      onPosted(post);
+      onPosted();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Network error');
     } finally {
@@ -65,9 +75,15 @@ export const WriteReview: React.FC<Props> = ({ token, onClose, onPosted }) => {
 
   const selectedVenue = events.find((e) => e.id === venueId);
 
+  const footerPaddingBottom = keyboardHeight.interpolate({
+    inputRange: [0, insets.bottom, insets.bottom + 1, 10000],
+    outputRange: [Math.max(insets.bottom, 16), Math.max(insets.bottom, 16), insets.bottom + 1, 10000],
+    extrapolate: 'clamp',
+  });
+
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: color.bg.base }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <SafeAreaView style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: color.bg.base }}>
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 24, paddingTop: 12 }}>
           <Pressable
             onPress={onClose}
@@ -84,7 +100,12 @@ export const WriteReview: React.FC<Props> = ({ token, onClose, onPosted }) => {
           <View style={{ flex: 1 }} />
         </View>
 
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingVertical: 16, gap: 18 }} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={{ paddingHorizontal: 24, paddingVertical: 16, gap: 18 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
           <View>
             <Micro size="sm" color={color.violet}>WRITE A REVIEW</Micro>
             <DisplayHeadline
@@ -201,14 +222,23 @@ export const WriteReview: React.FC<Props> = ({ token, onClose, onPosted }) => {
 
           {error ? <Body color={color.rose}>{error}</Body> : null}
         </ScrollView>
-
-        <View style={{ paddingHorizontal: 24, paddingTop: 12, paddingBottom: 16, borderTopWidth: 1, borderTopColor: color.stroke.soft }}>
-          <Button variant="night" disabled={!valid} loading={busy} onPress={submit}>
-            POST REVIEW →
-          </Button>
-        </View>
       </SafeAreaView>
-    </KeyboardAvoidingView>
+
+      <Animated.View
+        style={{
+          paddingHorizontal: 24,
+          paddingTop: 12,
+          paddingBottom: footerPaddingBottom,
+          borderTopWidth: 1,
+          borderTopColor: color.stroke.soft,
+          backgroundColor: color.bg.base,
+        }}
+      >
+        <Button variant="night" disabled={!valid} loading={busy} onPress={submit}>
+          POST REVIEW →
+        </Button>
+      </Animated.View>
+    </View>
   );
 };
 
