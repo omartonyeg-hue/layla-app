@@ -1,0 +1,40 @@
+# Render Blueprint for the LAYLA backend.
+# Workflow: in the Render dashboard, "New +" → "Blueprint" → point at this repo.
+# Render reads this file from the repo root, so the build/start commands run
+# from the monorepo root (which is why they use `--workspace=backend`).
+#
+# After Render creates the service, set the secret env vars in the dashboard:
+#   DATABASE_URL  (Neon pooled connection string, with ?pgbouncer=true&...)
+#   DIRECT_URL    (Neon non-pooled, used by Prisma migrations)
+#   JWT_SECRET    (generate with: openssl rand -base64 32)
+#
+# OTP_DEV_LOG and SMS_PROVIDER are set inline below — flip them when a real
+# SMS provider is wired up.
+
+services:
+  - type: web
+    name: layla-backend
+    runtime: node
+    plan: free
+    region: frankfurt          # closest to Egypt
+    rootDir: .                 # repo root so npm workspaces resolve
+    buildCommand: npm install && npm run build --workspace=backend
+    startCommand: npm run start --workspace=backend
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: OTP_DEV_LOG
+        value: "true"          # leave on until SMS is wired — code lands in Render logs
+      - key: SMS_PROVIDER
+        value: none
+      # Secrets are set in the dashboard, not here:
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false

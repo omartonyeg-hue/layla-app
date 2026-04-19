@@ -1,0 +1,327 @@
+// LAYLA — Phase 1 schema. Users, OTP challenges, profile, role.
+// Later phases add Events, Parties, Valet, Community models.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooled for runtime
+  directUrl = env("DIRECT_URL")   // non-pooled for migrations
+}
+
+enum UserRole {
+  GUEST   // I want to go out
+  HOST    // I want to host private parties
+  PRO     // Venue / DJ / promoter
+}
+
+enum City {
+  CAIRO
+  ALEXANDRIA
+  SAHEL
+  GOUNA
+  SHARM
+  HURGHADA
+}
+
+model User {
+  id           String   @id @default(cuid())
+  phone        String   @unique // E.164, e.g. +201221234567
+  phoneVerified Boolean @default(false)
+  role         UserRole?
+
+  name         String?
+  birthdate    DateTime? @db.Date
+  city         City?
+  vibes        String[] @default([])
+  avatarColor  String?   // hex used in anon avatar stacks
+
+  // Host reputation — denormalised for demo; real version derives from
+  // completed parties + guest ratings.
+  hostRating   Float?
+  hostedCount  Int       @default(0)
+  hostVerified Boolean   @default(false)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  otpChallenges OtpChallenge[]
+  tickets       Ticket[]
+  hostedParties Party[]         @relation("PartyHost")
+  partyRequests PartyRequest[]
+  posts         Post[]
+  rides         Ride[]
+  subscription  Subscription?
+}
+
+// Phase 2 — Events.
+// `gradient` is a token key (e.g. "sunset", "valet") that the mobile app maps
+// to actual color stops via tokens.ts. Keeps visual decisions in code.
+model Event {
+  id          String   @id @default(cuid())
+  name        String
+  venue       String
+  location    String?   // "Sidi Heneish · 120km west"
+  description String
+  startsAt    DateTime
+  gradient    String    // "sunset" | "valet" | "night" | "community"
+  lineup       String?
+  tag         String?   // "HOT" | "NEW" | null
+  featured    Boolean   @default(false)
+  city        City?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  tiers       EventTier[]
+  tickets     Ticket[]
+  posts       Post[]
+}
+
+model EventTier {
+  id          String  @id @default(cuid())
+  event       Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventId     String
+  name        String  // "Standard" | "VIP" | "Table (4 pax)"
+  description String
+  priceEgp    Int     // whole EGP — design shows "1,200 EGP"
+  stockTotal  Int
+  stockLeft   Int
+  sortOrder   Int     @default(0)
+
+  tickets     Ticket[]
+}
+
+model Ticket {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  event     Event    @relation(fields: [eventId], references: [id])
+  eventId   String
+  tier      EventTier @relation(fields: [tierId], references: [id])
+  tierId    String
+  orderRef  String   @unique // "#LYL-8AF-24"
+  gate      String?  // "B · PRIORITY"
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+// Phase 3 — Parties.
+// Address is hidden from the mobile API until the requester's PartyRequest is
+// APPROVED. House rules are a simple string array; richer structure (per-rule
+// acknowledgement) can arrive when the host-side UI lands.
+enum PartyRequestStatus {
+  PENDING
+  APPROVED
+  DECLINED
+}
+
+enum PartyTheme {
+  ROOFTOP
+  UNDERGROUND
+  POOL
+  BEACH
+  LOFT
+  HOUSE
+}
+
+model Party {
+  id            String   @id @default(cuid())
+  host          User     @relation("PartyHost", fields: [hostId], references: [id])
+  hostId        String
+  title         String
+  theme         PartyTheme
+  emoji         String   // single glyph shown on the card
+  gradient      String   // "sunset" | "night" | "valet" | etc. (token key)
+  neighborhood  String   // "Zamalek · Cairo"
+  address       String   // full address, revealed only on approval
+  doorDetail    String?  // "Building with blue door"
+  startsAt      DateTime
+  cap           Int      // max guests
+  rules         String[] @default([])
+  tag           String?  // "TONIGHT" | "STRICT DOOR" | "NEW HOST"
+  city          City?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  requests      PartyRequest[]
+}
+
+// Phase 4 — Community.
+// Single Post table keyed by `kind` so reviews, photo posts, and plain text
+// posts share the same feed model. Only REVIEW posts care about stars/vibes.
+enum PostKind {
+  REVIEW
+  PHOTO
+  TEXT
+}
+
+model Post {
+  id             String   @id @default(cuid())
+  author         User     @relation(fields: [authorId], references: [id])
+  authorId       String
+  kind           PostKind
+  text           String?
+  // REVIEW-only:
+  stars          Int?     // 1–5
+  vibes          String[] @default([])
+  // Optional venue/event reference for reviews or photo posts tied to a venue.
+  venueEvent     Event?   @relation(fields: [venueEventId], references: [id])
+  venueEventId   String?
+  createdAt      DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([authorId, createdAt])
+  @@index([venueEventId, createdAt])
+}
+
+// Phase 5 — Valet.
+// Drivers are vetted operators, not LAYLA users — they live in their own table
+// with vehicle metadata. Rides reference both rider (User) and driver (Driver).
+enum RideStatus {
+  PENDING       // freshly created, no driver assigned
+  MATCHING      // searching for a driver
+  ASSIGNED      // driver assigned, on the way to pickup
+  IN_PROGRESS   // driver has the rider, en route to dropoff
+  COMPLETED
+  CANCELED
+}
+
+model Driver {
+  id             String   @id @default(cuid())
+  name           String
+  avatarColor    String?  // hex
+  rating         Float
+  trips          Int      @default(0)
+  yearsActive    Int      @default(0)
+  carMake        String   // "VW"
+  carModel       String   // "Polo"
+  carColor       String   // "White"
+  plate          String   // "B 4291"
+  transmission   String   // "AUTOMATIC"
+  online         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  rides          Ride[]
+}
+
+model Ride {
+  id             String   @id @default(cuid())
+  rider          User     @relation(fields: [riderId], references: [id])
+  riderId        String
+  driver         Driver?  @relation(fields: [driverId], references: [id])
+  driverId       String?
+  pickupLabel    String   // "CJC Zamalek · 26th of July"
+  dropoffLabel   String   // "Home · Maadi St. 9"
+  distanceKm     Float    // 14.2
+  etaMinutes     Int      // 22
+  fareEgp        Int      // 220
+  status         RideStatus @default(PENDING)
+  createdAt      DateTime @default(now())
+  assignedAt     DateTime?
+  startedAt      DateTime?
+  completedAt    DateTime?
+
+  rating         RideRating?
+
+  @@index([riderId, createdAt])
+}
+
+model RideRating {
+  id        String   @id @default(cuid())
+  ride      Ride     @relation(fields: [rideId], references: [id], onDelete: Cascade)
+  rideId    String   @unique
+  stars     Int      // 1-5
+  tags      String[] @default([])
+  tipEgp    Int      @default(0)
+  comment   String?
+  createdAt DateTime @default(now())
+}
+
+// Phase 6 — Pro / Scale.
+// Subscription is a 1:1 with User (single active membership per user). Real
+// payment integration (Stripe / Apple IAP) is deferred — `status: TRIALING`
+// just means we mocked the purchase locally.
+enum SubscriptionPlan {
+  MONTHLY
+  ANNUAL
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  CANCELED
+}
+
+model Subscription {
+  id              String   @id @default(cuid())
+  user            User     @relation(fields: [userId], references: [id])
+  userId          String   @unique
+  plan            SubscriptionPlan
+  status          SubscriptionStatus @default(TRIALING)
+  priceEgp        Int      // monthly equivalent (799 annual / 899 monthly)
+  startedAt       DateTime @default(now())
+  trialEndsAt     DateTime?
+  renewsAt        DateTime
+  canceledAt      DateTime?
+
+  @@index([userId])
+}
+
+// Pro-only "exclusive drops" — shown on the Dashboard preview + dedicated
+// Drops screen.
+enum DropTag {
+  LIVE
+  LIMITED
+  EXCLUSIVE
+}
+
+model Drop {
+  id           String   @id @default(cuid())
+  name         String
+  host         String   // "LAYLA Curated", "Partner · Gouna Marina", etc.
+  neighborhood String
+  emoji        String
+  gradient     String   // token key
+  startsAt     DateTime
+  capacity     Int
+  taken        Int      @default(0)
+  tag          DropTag
+  feeEgp       Int      // 0 means "FREE FOR PRO"
+  createdAt    DateTime @default(now())
+
+  @@index([startsAt])
+}
+
+model PartyRequest {
+  id          String             @id @default(cuid())
+  party       Party              @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  partyId     String
+  requester   User               @relation(fields: [requesterId], references: [id])
+  requesterId String
+  status      PartyRequestStatus @default(PENDING)
+  message     String?            // optional intro, 240 char cap in UI
+  decidedAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([partyId, requesterId])
+  @@index([requesterId, status])
+}
+
+model OtpChallenge {
+  id         String   @id @default(cuid())
+  phone      String
+  codeHash   String   // bcrypt hash of the 6-digit code
+  expiresAt  DateTime
+  consumedAt DateTime?
+  attempts   Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  user       User?    @relation(fields: [userId], references: [id])
+  userId     String?
+
+  @@index([phone, createdAt])
+}

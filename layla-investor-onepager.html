@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LAYLA — Investor One-Pager</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cairo:wght@300;400;600;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #07060D;
+    --bg-2: #10101E;
+    --gold: #D4A843;
+    --gold-2: #F0C96A;
+    --gold-3: #FFF4D6;
+    --neon: #FF3D6B;
+    --purple: #8B3FFF;
+    --cyan: #00E5C8;
+    --text: #F0EDE6;
+    --muted: #9A98B0;
+    --dim: #6B6880;
+    --border: rgba(212,168,67,0.15);
+  }
+
+  body {
+    background: #0A0910;
+    color: var(--text);
+    font-family: 'Cairo', sans-serif;
+    min-height: 100vh;
+    padding: 40px 20px;
+    display: flex;
+    justify-content: center;
+  }
+
+  .page {
+    width: 100%;
+    max-width: 860px;
+    background: var(--bg);
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 40px 100px rgba(212,168,67,0.1), 0 0 0 1px var(--border);
+    position: relative;
+  }
+
+  /* Noise */
+  .page::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    opacity: 0.4;
+    z-index: 1;
+  }
+
+  .inner { position: relative; z-index: 2; }
+
+  /* ===== HERO ===== */
+  .hero {
+    position: relative;
+    padding: 60px 50px 50px;
+    background: 
+      radial-gradient(ellipse at 10% 100%, rgba(139,63,255,0.15), transparent 50%),
+      radial-gradient(ellipse at 90% 0%, rgba(212,168,67,0.12), transparent 50%),
+      linear-gradient(180deg, rgba(7,6,13,1) 0%, rgba(16,16,30,1) 100%);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .hero-rays {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.08;
+  }
+
+  .stamp {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 12px;
+    border-radius: 100px;
+    background: rgba(212,168,67,0.08);
+    border: 1px solid rgba(212,168,67,0.3);
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    color: var(--gold);
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+  .stamp-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 10px var(--gold); }
+
+  .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .brand-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 96px;
+    line-height: 0.9;
+    letter-spacing: 0.04em;
+    background: linear-gradient(135deg, var(--gold) 0%, var(--gold-2) 40%, var(--neon) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-weight: 900;
+  }
+
+  .brand-ar {
+    font-family: 'Cairo', sans-serif;
+    font-size: 30px;
+    color: var(--gold);
+    opacity: 0.5;
+    font-weight: 300;
+    letter-spacing: 0.1em;
+  }
+
+  .tagline {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 42px;
+    color: var(--text);
+    line-height: 1;
+    letter-spacing: 0.02em;
+    font-weight: 900;
+    margin-bottom: 8px;
+  }
+  .tagline .accent {
+    background: linear-gradient(135deg, var(--gold), var(--neon));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .sub-tagline {
+    font-size: 15px;
+    color: var(--muted);
+    line-height: 1.5;
+    max-width: 520px;
+    margin-bottom: 28px;
+  }
+
+  .hero-meta {
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+  }
+  .hero-meta-item { display: flex; flex-direction: column; gap: 2px; }
+  .hero-meta-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.25em;
+    color: var(--dim);
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .hero-meta-value {
+    font-size: 13px;
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  /* ===== SECTION ===== */
+  .section {
+    padding: 40px 50px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .section:last-child { border-bottom: none; }
+
+  .section-label {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .section-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    color: var(--gold);
+    font-weight: 700;
+  }
+  .section-line {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, var(--gold) 0%, transparent 80%);
+    opacity: 0.4;
+  }
+
+  .section-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 42px;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    font-weight: 900;
+    margin-bottom: 8px;
+  }
+
+  .section-kicker {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.5;
+    max-width: 640px;
+    margin-bottom: 28px;
+  }
+
+  /* ===== PROBLEM/SOLUTION ===== */
+  .split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  @media (max-width: 700px) { .split { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--bg-2);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 14px;
+    padding: 22px;
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .card-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+  .card-icon.problem { background: rgba(255,61,107,0.15); border: 1px solid rgba(255,61,107,0.3); }
+  .card-icon.solution { background: rgba(0,229,200,0.15); border: 1px solid rgba(0,229,200,0.3); }
+
+  .card-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 0.04em;
+    color: var(--text);
+    font-weight: 700;
+  }
+
+  .problem-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+  .problem-item {
+    display: flex;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.5;
+  }
+  .problem-bullet {
+    flex-shrink: 0;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--neon);
+    margin-top: 8px;
+  }
+
+  .solution-text {
+    font-size: 14px;
+    color: var(--text);
+    line-height: 1.6;
+    margin-bottom: 16px;
+  }
+  .solution-text strong { color: var(--cyan); font-weight: 700; }
+
+  /* ===== PILLARS ===== */
+  .pillars {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  @media (max-width: 700px) { .pillars { grid-template-columns: repeat(2, 1fr); } }
+
+  .pillar {
+    padding: 18px 14px;
+    border-radius: 12px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+  .pillar::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--accent);
+  }
+  .pillar[data-color="gold"] { --accent: var(--gold); }
+  .pillar[data-color="pink"] { --accent: var(--neon); }
+  .pillar[data-color="cyan"] { --accent: var(--cyan); }
+  .pillar[data-color="purple"] { --accent: var(--purple); }
+
+  .pillar-icon {
+    font-size: 24px;
+    margin-bottom: 10px;
+    display: block;
+  }
+  .pillar-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 16px;
+    letter-spacing: 0.03em;
+    color: var(--text);
+    margin-bottom: 4px;
+    line-height: 1.1;
+  }
+  .pillar-desc {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+
+  /* ===== STATS ===== */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  @media (max-width: 700px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+
+  .stat {
+    padding: 20px 16px;
+    background: var(--bg-2);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    text-align: center;
+  }
+  .stat-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 34px;
+    line-height: 1;
+    font-weight: 900;
+    color: var(--gold);
+    letter-spacing: 0.02em;
+    margin-bottom: 4px;
+  }
+  .stat-num .unit {
+    font-size: 14px;
+    color: var(--muted);
+    font-weight: 400;
+  }
+  .stat-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    color: var(--dim);
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .stat-note {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 4px;
+    line-height: 1.3;
+  }
+
+  /* ===== REVENUE / BUSINESS MODEL ===== */
+  .model-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  @media (max-width: 700px) { .model-grid { grid-template-columns: 1fr; } }
+
+  .model-item {
+    background: var(--bg-2);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .model-symbol {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: rgba(212,168,67,0.12);
+    border: 1px solid rgba(212,168,67,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+  .model-body { flex: 1; }
+  .model-name { color: var(--text); font-weight: 700; font-size: 13px; margin-bottom: 2px; }
+  .model-desc { color: var(--muted); font-size: 11px; line-height: 1.4; }
+  .model-percent {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    color: var(--gold);
+    font-weight: 900;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  /* ===== MOAT ===== */
+  .moat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  @media (max-width: 700px) { .moat-grid { grid-template-columns: 1fr; } }
+
+  .moat-item {
+    padding: 16px 18px;
+    background: linear-gradient(135deg, rgba(212,168,67,0.04), rgba(139,63,255,0.03));
+    border: 1px solid rgba(212,168,67,0.2);
+    border-radius: 12px;
+  }
+  .moat-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 16px;
+    color: var(--gold);
+    letter-spacing: 0.03em;
+    margin-bottom: 6px;
+  }
+  .moat-desc {
+    font-size: 12px;
+    color: var(--text);
+    line-height: 1.5;
+  }
+
+  /* ===== ASK / CTA ===== */
+  .ask-section {
+    background:
+      radial-gradient(ellipse at 20% 100%, rgba(212,168,67,0.1), transparent 50%),
+      radial-gradient(ellipse at 80% 0%, rgba(255,61,107,0.08), transparent 50%),
+      linear-gradient(135deg, #0a0912 0%, #1a0e1f 100%);
+  }
+
+  .ask-hero {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  .ask-amount {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 76px;
+    line-height: 0.9;
+    letter-spacing: 0.02em;
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--gold), var(--gold-2), var(--gold-3));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .ask-context {
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .use-of-funds {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 700px) { .use-of-funds { grid-template-columns: repeat(2, 1fr); } }
+
+  .uof {
+    padding: 14px 12px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+    text-align: center;
+  }
+  .uof-percent {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    color: var(--gold);
+    font-weight: 900;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .uof-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    font-weight: 700;
+    text-transform: uppercase;
+    line-height: 1.3;
+  }
+
+  .contact-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24px 0 0;
+    border-top: 1px solid rgba(212,168,67,0.2);
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .contact-left {}
+  .contact-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    color: var(--text);
+    letter-spacing: 0.03em;
+  }
+  .contact-role {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: var(--dim);
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+  .contact-info {
+    text-align: right;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+  .contact-info a { color: var(--gold); text-decoration: none; }
+
+  /* ===== FOOTER ===== */
+  .footer {
+    padding: 20px 50px;
+    background: #050409;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: var(--dim);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .footer .right { color: var(--gold); }
+
+  @media print {
+    body { background: white; padding: 0; }
+    .page { box-shadow: none; border-radius: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="inner">
+
+    <!-- ==================== HERO ==================== -->
+    <section class="hero">
+      <svg class="hero-rays" viewBox="0 0 800 400" preserveAspectRatio="none">
+        <defs>
+          <radialGradient id="ray" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#D4A843" stop-opacity="0.3"/>
+            <stop offset="100%" stop-color="#D4A843" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <circle cx="400" cy="400" r="300" fill="url(#ray)"/>
+      </svg>
+
+      <div class="stamp">
+        <div class="stamp-dot"></div>
+        CONFIDENTIAL · SEED ROUND · 2026
+      </div>
+
+      <div class="brand">
+        <div class="brand-name">LAYLA</div>
+        <div class="brand-ar">ليلى</div>
+      </div>
+
+      <div class="tagline">
+        EGYPT'S NIGHTLIFE<br/>
+        <span class="accent">SUPER-APP.</span>
+      </div>
+
+      <div class="sub-tagline">
+        A single app for everything people do after sunset in Egypt — discover events, host house parties, get home safely with their car, and plug into their scene. Built safety-first, mobile-native, Arabic-first.
+      </div>
+
+      <div class="hero-meta">
+        <div class="hero-meta-item">
+          <div class="hero-meta-label">Stage</div>
+          <div class="hero-meta-value">Pre-seed → Seed</div>
+        </div>
+        <div class="hero-meta-item">
+          <div class="hero-meta-label">Raising</div>
+          <div class="hero-meta-value">$1.5M USD</div>
+        </div>
+        <div class="hero-meta-item">
+          <div class="hero-meta-label">Launch</div>
+          <div class="hero-meta-value">Q3 2026 · Cairo</div>
+        </div>
+        <div class="hero-meta-item">
+          <div class="hero-meta-label">HQ</div>
+          <div class="hero-meta-value">Cairo, Egypt</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== THE PROBLEM ==================== -->
+    <section class="section">
+      <div class="section-label">
+        <div class="section-num">01 · THE PROBLEM</div>
+        <div class="section-line"></div>
+      </div>
+      <div class="section-title" style="color: var(--neon);">EGYPT GOES OUT.<br/>NO ONE HELPS.</div>
+      <div class="section-kicker">
+        Cairo, Sahel, and Gouna host millions of nights out a year — yet the infrastructure serving those nights is fractured, unsafe, and analog.
+      </div>
+
+      <div class="split">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-icon problem">🚨</div>
+            <div class="card-title">Drunk driving is the norm</div>
+          </div>
+          <ul class="problem-list">
+            <li class="problem-item"><div class="problem-bullet"></div>No affordable service drives drivers home with their car</li>
+            <li class="problem-item"><div class="problem-bullet"></div>Uber/Careem leave the car behind — a non-starter for Egyptians</li>
+            <li class="problem-item"><div class="problem-bullet"></div>Result: ~60% of nightlife-goers drive after drinking</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-icon problem">📱</div>
+            <div class="card-title">The scene lives in DMs</div>
+          </div>
+          <ul class="problem-list">
+            <li class="problem-item"><div class="problem-bullet"></div>Events discovered through Instagram, WhatsApp, word-of-mouth</li>
+            <li class="problem-item"><div class="problem-bullet"></div>No trusted ticketing → fake tickets, overselling, scams common</li>
+            <li class="problem-item"><div class="problem-bullet"></div>House parties happen privately — no safe discovery layer for hosts or guests</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== THE SOLUTION ==================== -->
+    <section class="section">
+      <div class="section-label">
+        <div class="section-num">02 · THE SOLUTION</div>
+        <div class="section-line"></div>
+      </div>
+      <div class="section-title" style="color: var(--cyan);">FOUR PRODUCTS.<br/>ONE APP. ONE LOGIN.</div>
+      <div class="section-kicker">
+        LAYLA is the first mobile super-app purpose-built for Egyptian nightlife. Four integrated products, unified by a single verified identity and social graph.
+      </div>
+
+      <div class="pillars">
+        <div class="pillar" data-color="gold">
+          <div class="pillar-icon">🎟️</div>
+          <div class="pillar-title">EVENTS & TICKETS</div>
+          <div class="pillar-desc">Discover, book, QR-entry with anti-screenshot protection. Paymob, Fawry, Vodafone Cash, Apple Pay.</div>
+        </div>
+        <div class="pillar" data-color="pink">
+          <div class="pillar-icon">🏠</div>
+          <div class="pillar-title">HOUSE PARTIES</div>
+          <div class="pillar-desc">Verified hosts. Hidden addresses until approval. First safe platform for private parties in the region.</div>
+        </div>
+        <div class="pillar" data-color="cyan">
+          <div class="pillar-icon">🚗</div>
+          <div class="pillar-title">SAFE RIDE VALET</div>
+          <div class="pillar-desc">A trained valet drives you AND your car home. Live tracking, SOS, insured. No one else does this at scale.</div>
+        </div>
+        <div class="pillar" data-color="purple">
+          <div class="pillar-icon">👥</div>
+          <div class="pillar-title">COMMUNITY</div>
+          <div class="pillar-desc">Social feed, stories, DMs, venue follows, reviews. The connective tissue that makes the app sticky.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== MARKET ==================== -->
+    <section class="section">
+      <div class="section-label">
+        <div class="section-num">03 · MARKET OPPORTUNITY</div>
+        <div class="section-line"></div>
+      </div>
+      <div class="section-title">A HUGE MARKET,<br/>VIRTUALLY UNTAPPED.</div>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-num">22<span class="unit">M</span></div>
+          <div class="stat-label">CAIRO METRO</div>
+          <div class="stat-note">Population · young-skewed</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">7<span class="unit">M</span></div>
+          <div class="stat-label">CORE ADDRESSABLE</div>
+          <div class="stat-note">18–35, urban, middle+ income</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">12<span class="unit">B</span></div>
+          <div class="stat-label">ANNUAL SPEND (EGP)</div>
+          <div class="stat-note">Nightlife + F&B + events · est.</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">3×</div>
+          <div class="stat-label">SUMMER EXPANSION</div>
+          <div class="stat-note">Sahel + Gouna seasonal demand</div>
+        </div>
+      </div>
+
+      <div class="section-kicker" style="margin-top: 24px; margin-bottom: 0;">
+        <strong style="color: var(--gold);">Beyond Egypt:</strong> the model ports cleanly to Lebanon, UAE, Morocco, Saudi — all MENA markets with identical patterns (car-centric cities, underserved nightlife tech, strong night economies). Expansion TAM: 45M+ addressable users across MENA.
+      </div>
+    </section>
+
+    <!-- ==================== BUSINESS MODEL ==================== -->
+    <section class="section">
+      <div class="section-label">
+        <div class="section-num">04 · BUSINESS MODEL</div>
+        <div class="section-line"></div>
+      </div>
+      <div class="section-title">FIVE REVENUE LINES.<br/>DIVERSIFIED FROM DAY ONE.</div>
+
+      <div class="model-grid">
+        <div class="model-item">
+          <div class="model-symbol">🎟️</div>
+          <div class="model-body">
+            <div class="model-name">Ticketing Fees</div>
+            <div class="model-desc">Per ticket sold on events</div>
+          </div>
+          <div class="model-percent">7%</div>
+        </div>
+        <div class="model-item">
+          <div class="model-symbol">🏠</div>
+          <div class="model-body">
+            <div class="model-name">House Party Fee</div>
+            <div class="model-desc">On paid entry · 0% on free parties</div>
+          </div>
+          <div class="model-percent">5%</div>
+        </div>
+        <div class="model-item">
+          <div class="model-symbol">🚗</div>
+          <div class="model-body">
+            <div class="model-name">Valet Commission</div>
+            <div class="model-desc">On every ride · avg 350 EGP</div>
+          </div>
+          <div class="model-percent">25%</div>
+        </div>
+        <div class="model-item">
+          <div class="model-symbol">👑</div>
+          <div class="model-body">
+            <div class="model-name">LAYLA Pro Subscription</div>
+            <div class="model-desc">4,999 EGP/yr or 499 EGP/mo</div>
+          </div>
+          <div class="model-percent">~10%</div>
+        </div>
+        <div class="model-item" style="grid-column: span 2;">
+          <div class="model-symbol">🤝</div>
+          <div class="model-body">
+            <div class="model-name">Partners & Sponsored Listings</div>
+            <div class="model-desc">Brand deals (drinks, fashion, tech) · boosted event placements</div>
+          </div>
+          <div class="model-percent">$</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== MOAT ==================== -->
+    <section class="section">
+      <div class="section-label">
+        <div class="section-num">05 · WHY WE WIN</div>
+        <div class="section-line"></div>
+      </div>
+      <div class="section-title">DEFENSIBILITY,<br/>BY DESIGN.</div>
+
+      <div class="moat-grid">
+        <div class="moat-item">
+          <div class="moat-title">🛡️ SAFETY AS A FEATURE, NOT A RETROFIT</div>
+          <div class="moat-desc">ID-verified hosts, anti-screenshot tickets, valet background checks, SOS with voice trigger. Built in from day one — impossible to add later without rearchitecting.</div>
+        </div>
+        <div class="moat-item">
+          <div class="moat-title">🔗 FOUR PRODUCTS, ONE GRAPH</div>
+          <div class="moat-desc">Every product feeds the others. Events discovered via friends. Valet ordered after check-in. House parties promoted to scene-mates. Network effects compound across pillars.</div>
+        </div>
+        <div class="moat-item">
+          <div class="moat-title">🚗 VALET IS UNFORGEABLE</div>
+          <div class="moat-desc">Requires driver network, training, insurance, dispatch, vetting. Operationally heavy — a two-year moat against anyone trying to copy.</div>
+        </div>
+        <div class="moat-item">
+          <div class="moat-title">🇪🇬 LOCALIZATION DEEP-WINS</div>
+          <div class="moat-desc">Arabic-first UX, Egyptian payment rails (Paymob/Fawry/VF Cash), cultural nuance in safety messaging, seasonal Sahel mode. International players will fumble this.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TRACTION ==================== -->
+    <section class="section">
+      <div class="section-label">
+        <div class="section-num">06 · WHERE WE ARE</div>
+        <div class="section-line"></div>
+      </div>
+      <div class="section-title">PRODUCT BUILT.<br/>LAUNCH-READY.</div>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-num">6<span class="unit">/6</span></div>
+          <div class="stat-label">PRODUCT PHASES</div>
+          <div class="stat-note">Fully designed & prototyped</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">40<span class="unit">+</span></div>
+          <div class="stat-label">VENUE LOIs</div>
+          <div class="stat-note">In active partnership discussion</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">120<span class="unit">+</span></div>
+          <div class="stat-label">VALET PIPELINE</div>
+          <div class="stat-note">Drivers pre-vetted, ready to onboard</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">2.4<span class="unit">K</span></div>
+          <div class="stat-label">WAITLIST</div>
+          <div class="stat-note">Pre-launch signups · organic</div>
+        </div>
+      </div>
+
+      <div class="section-kicker" style="margin-top: 24px; margin-bottom: 0; font-size: 12px; font-style: italic; opacity: 0.6;">
+        * Adjust all figures above with current actuals before sending. Defaults shown are realistic seed-stage targets.
+      </div>
+    </section>
+
+    <!-- ==================== THE ASK ==================== -->
+    <section class="section ask-section">
+      <div class="section-label">
+        <div class="section-num" style="color: var(--gold-2);">07 · THE ASK</div>
+        <div class="section-line"></div>
+      </div>
+
+      <div class="ask-hero">
+        <div class="ask-amount">$1.5M</div>
+        <div class="ask-context">SEED · 18-MONTH RUNWAY · CAIRO LAUNCH + SAHEL SEASON 1</div>
+      </div>
+
+      <div class="use-of-funds">
+        <div class="uof">
+          <div class="uof-percent">40%</div>
+          <div class="uof-label">Product & Engineering</div>
+        </div>
+        <div class="uof">
+          <div class="uof-percent">25%</div>
+          <div class="uof-label">Valet Operations Launch</div>
+        </div>
+        <div class="uof">
+          <div class="uof-percent">20%</div>
+          <div class="uof-label">Marketing & User Acquisition</div>
+        </div>
+        <div class="uof">
+          <div class="uof-percent">15%</div>
+          <div class="uof-label">Team & Ops</div>
+        </div>
+      </div>
+
+      <div class="contact-bar">
+        <div class="contact-left">
+          <div class="contact-name">[FOUNDER NAME]</div>
+          <div class="contact-role">Founder & CEO · LAYLA</div>
+        </div>
+        <div class="contact-info">
+          [founder@layla.app]<br/>
+          [+20 1X XXX XXXX]<br/>
+          <a href="#">layla.app</a> · <a href="#">@layla.eg</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== FOOTER ==================== -->
+    <div class="footer">
+      <span>LAYLA · ليلى · CONFIDENTIAL</span>
+      <span class="right">OWN THE NIGHT · SAFELY</span>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

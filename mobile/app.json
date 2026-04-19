@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "LAYLA",
+    "slug": "layla",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "layla",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "backgroundColor": "#07060D",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.layla.app"
+    },
+    "android": {
+      "package": "com.layla.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#07060D"
+      }
+    },
+    "plugins": [
+      "expo-font",
+      "@react-native-community/datetimepicker"
+    ]
+  }
+}
