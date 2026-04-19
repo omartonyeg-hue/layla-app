@@ -36,11 +36,12 @@ const timeAgo = (iso: string) => {
 };
 
 const ContextKicker: React.FC<{ post: Post }> = ({ post }) => {
+  // Priority: reviewed venue > free-text location > tagged venue (non-review).
   if (post.kind === 'REVIEW' && post.venueEvent) {
     return <Micro size="xs" color={color.violet}>REVIEWED {post.venueEvent.venue.toUpperCase()}</Micro>;
   }
-  if (post.kind === 'MOOD' && post.venueEvent) {
-    return <Micro size="xs" color={color.gold[500]}>AT {post.venueEvent.venue.toUpperCase()}</Micro>;
+  if (post.location) {
+    return <Micro size="xs" color={color.gold[500]}>📍 {post.location.toUpperCase()}</Micro>;
   }
   if (post.venueEvent) {
     return <Micro size="xs" color={color.text.muted}>📍 {post.venueEvent.venue.toUpperCase()}</Micro>;

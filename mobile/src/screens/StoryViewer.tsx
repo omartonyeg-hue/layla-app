@@ -198,6 +198,7 @@ export const StoryViewer: React.FC<Props> = ({ navigation, route }) => {
             </Text>
             <Text style={{ color: 'rgba(240,237,230,0.7)', fontSize: 11, marginTop: 1 }}>
               {timeAgo(segment.createdAt)}
+              {segment.location ? ` · 📍 ${segment.location}` : ''}
             </Text>
           </View>
           <Pressable

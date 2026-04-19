@@ -181,9 +181,8 @@ export const CommunityFeed: React.FC = () => {
       <ComposeSheet
         visible={composeOpen}
         onClose={() => setComposeOpen(false)}
-        onMood={() => navigation.navigate('MoodComposer')}
+        onCreate={() => navigation.navigate('Composer')}
         onStory={() => navigation.navigate('StoryComposer')}
-        onReview={() => navigation.navigate('WriteReview')}
       />
     </View>
   );

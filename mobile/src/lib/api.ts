@@ -89,6 +89,23 @@ export const api = {
       body: JSON.stringify({ role }),
     }),
 
+  // ── Rider's car (Phase 5 — Valet) ───────────────────────────
+  getMyVehicle: (token: string) =>
+    request<{ vehicle: UserVehicle | null }>('/users/me/vehicle', { token }),
+
+  upsertMyVehicle: (
+    token: string,
+    data: { make: string; model: string; color: string; plate: string; transmission: Transmission },
+  ) =>
+    request<{ vehicle: UserVehicle }>('/users/me/vehicle', {
+      method: 'PUT',
+      token,
+      body: JSON.stringify(data),
+    }),
+
+  deleteMyVehicle: (token: string) =>
+    request<{ ok: true }>('/users/me/vehicle', { method: 'DELETE', token }),
+
   // ── Phase 2 — Events ────────────────────────────────────────
   listEvents: (token: string) =>
     request<{ events: EventWithTiers[] }>('/events', { token }),
@@ -281,6 +298,27 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  createPost: (
+    token: string,
+    data: {
+      text?: string;
+      mediaUrls?: string[];
+      gradient?: string;
+      emoji?: string;
+      venueEventId?: string;
+      location?: string;
+      stars?: number;
+      vibes?: string[];
+    },
+  ) =>
+    request<{ post: Post }>('/community/posts', {
+      method: 'POST',
+      token,
+      body: JSON.stringify(data),
+    }),
+
+  // Deprecated alias. Use createPost for new code; kept so back-compat
+  // callers don't break mid-migration.
   createMoodPost: (
     token: string,
     data: { gradient: string; emoji: string; text?: string; venueEventId?: string },
@@ -312,7 +350,7 @@ export const api = {
 
   createStory: (
     token: string,
-    data: { gradient: string; emoji: string; caption?: string },
+    data: { gradient: string; emoji: string; mediaUrl?: string; caption?: string; location?: string },
   ) =>
     request<{ story: StoryWithAuthor }>('/community/stories', {
       method: 'POST',
@@ -468,6 +506,20 @@ export type NearbyDriver = DriverSummary & {
   distanceKm: number;
 };
 
+export type Transmission = 'AUTOMATIC' | 'MANUAL';
+
+export type UserVehicle = {
+  id: string;
+  userId: string;
+  make: string;
+  model: string;
+  color: string;
+  plate: string;
+  transmission: Transmission;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type RideStatus = 'PENDING' | 'MATCHING' | 'ASSIGNED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELED';
 
 export type Ride = {
@@ -566,6 +618,7 @@ export type Post = {
   emoji: string | null;
   mediaUrls: string[];
   venueEvent: PostVenue | null;
+  location: string | null;
   createdAt: string;
   likeCount: number;
   commentCount: number;
@@ -587,6 +640,7 @@ export type StorySegment = {
   emoji: string;
   mediaUrl: string | null;
   caption: string | null;
+  location: string | null;
   createdAt: string;
   expiresAt: string;
   seen: boolean;

@@ -27,15 +27,28 @@ export type PartiesStackParamList = {
 export type CommunityStackParamList = {
   CommunityFeed: undefined;
   UserProfile: { userId: string };
-  WriteReview: undefined;
-  MoodComposer: undefined;
+  Composer: undefined;          // unified post composer (photos, caption, location, review)
+  WriteReview: undefined;       // legacy — kept registered so old code/nav calls don't crash
+  MoodComposer: undefined;      // legacy — replaced by Composer
   StoryComposer: undefined;
   StoryViewer: { groups: StoryGroup[]; startGroupIndex: number };
   Comments: { postId: string };
 };
 
+export type PinnedLocation = { label: string; lat: number; lng: number };
+
 export type ValetStackParamList = {
   ValetBook: undefined;
+  ValetPinLocation: {
+    mode: 'pickup' | 'dropoff';
+    initialLabel?: string;
+    initialLat?: number;
+    initialLng?: number;
+    // Callback pattern keeps the pin screen decoupled from Book state.
+    // React Navigation warns about non-serializable params in dev — acceptable
+    // here because we never deep-link into the pin screen.
+    onConfirm: (loc: PinnedLocation) => void;
+  };
   ValetFinding: { ride: Ride };
   ValetTracking: { ride: Ride };
   ValetCompleted: { ride: Ride };
@@ -80,6 +93,7 @@ export type RootStackParamList = {
   // Tab-bar-hiding overlays
   Settings: undefined;
   ProfileEdit: undefined;
+  VehicleEdit: { returnTo?: keyof RootStackParamList } | undefined;
   HostInbox: undefined;
   CreateParty: undefined;
   AccountEdit: undefined;

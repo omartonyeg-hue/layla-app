@@ -12,13 +12,12 @@ import { haptic } from '../lib/haptics';
 type Props = {
   visible: boolean;
   onClose: () => void;
-  onMood: () => void;
+  onCreate: () => void;   // unified post composer (photos, caption, review, location)
   onStory: () => void;
-  onReview: () => void;
 };
 
 type Action = {
-  key: 'mood' | 'story' | 'review';
+  key: 'create' | 'story';
   title: string;
   subtitle: string;
   emoji: string;
@@ -26,7 +25,7 @@ type Action = {
   onPress: () => void;
 };
 
-export const ComposeSheet: React.FC<Props> = ({ visible, onClose, onMood, onStory, onReview }) => {
+export const ComposeSheet: React.FC<Props> = ({ visible, onClose, onCreate, onStory }) => {
   const insets = useSafeAreaInsets();
   const translate = useRef(new Animated.Value(400)).current;
   const backdrop = useRef(new Animated.Value(0)).current;
@@ -51,9 +50,22 @@ export const ComposeSheet: React.FC<Props> = ({ visible, onClose, onMood, onStor
   };
 
   const actions: Action[] = [
-    { key: 'mood',   title: 'POST A MOOD', subtitle: 'Gradient canvas, emoji, caption.', emoji: '🪩', gradientKey: 'gold',     onPress: () => { haptic.press(); close(); setTimeout(onMood, 210); } },
-    { key: 'story',  title: 'ADD A STORY', subtitle: 'Live for 24 hours, just your circle.', emoji: '✨', gradientKey: 'night', onPress: () => { haptic.press(); close(); setTimeout(onStory, 210); } },
-    { key: 'review', title: 'WRITE A REVIEW', subtitle: 'Stars · vibe · where you were.', emoji: '◆', gradientKey: 'community', onPress: () => { haptic.press(); close(); setTimeout(onReview, 210); } },
+    {
+      key: 'create',
+      title: 'CREATE A POST',
+      subtitle: 'Photos, caption, location — add a review or tag friends.',
+      emoji: '📸',
+      gradientKey: 'gold',
+      onPress: () => { haptic.press(); close(); setTimeout(onCreate, 210); },
+    },
+    {
+      key: 'story',
+      title: 'ADD A STORY',
+      subtitle: 'Live for 24 hours, just your circle.',
+      emoji: '✨',
+      gradientKey: 'night',
+      onPress: () => { haptic.press(); close(); setTimeout(onStory, 210); },
+    },
   ];
 
   return (

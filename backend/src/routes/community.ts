@@ -82,33 +82,62 @@ router.post('/reviews', async (req, res) => {
   });
 });
 
-// ── Mood posts ───────────────────────────────────────────────────
-// Gradient canvas + emoji + optional caption. No photo upload infra yet; this
-// matches LAYLA's gold/violet/sunset visual language.
-const MoodBody = z.object({
-  gradient: z.string().min(1).max(24),
-  emoji: z.string().min(1).max(8),
-  text: z.string().max(280).optional(),
+// ── Unified post create ─────────────────────────────────────────
+// Single endpoint handles MOOD (photo or gradient canvas) and REVIEW
+// (stars + vibes) in one payload. Server derives the `kind` from whether
+// stars were provided: stars → REVIEW, else → MOOD. Clients can attach
+// photos (Cloudinary URLs), free-text location, or a venueEvent.
+const PostBody = z.object({
+  text: z.string().max(600).optional(),
+  mediaUrls: z.array(z.string().url().startsWith('https://res.cloudinary.com/')).max(10).optional(),
+  // Gradient/emoji used when mediaUrls is empty (the "mood canvas" fallback).
+  gradient: z.string().min(1).max(24).optional(),
+  emoji: z.string().min(1).max(8).optional(),
   venueEventId: z.string().optional(),
+  location: z.string().trim().max(80).optional(),
+  // Review add-on: when stars is 1-5, the post is classified as REVIEW and
+  // vibes[] become meaningful (shown as chips below the stars).
+  stars: z.number().int().min(1).max(5).optional(),
+  vibes: z.array(z.string().max(32)).max(8).optional(),
 });
 
 router.post('/posts', async (req, res) => {
-  const parsed = MoodBody.safeParse(req.body);
+  const parsed = PostBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  if (parsed.data.venueEventId) {
-    const ev = await prisma.event.findUnique({ where: { id: parsed.data.venueEventId } });
+  const {
+    text, mediaUrls = [], gradient, emoji,
+    venueEventId, location, stars, vibes = [],
+  } = parsed.data;
+
+  // Require either photos or a gradient canvas so every post has some visual.
+  // Reviews can be text-only + stars, so relax when stars is set.
+  if (mediaUrls.length === 0 && !stars && (!gradient || !emoji)) {
+    return res.status(400).json({ error: 'Add a photo or pick a backdrop to post.' });
+  }
+  if (!text?.trim() && mediaUrls.length === 0 && !stars) {
+    return res.status(400).json({ error: 'A post needs a photo, a caption, or a review.' });
+  }
+
+  if (venueEventId) {
+    const ev = await prisma.event.findUnique({ where: { id: venueEventId } });
     if (!ev) return res.status(400).json({ error: 'Unknown venue' });
   }
+
+  const kind = stars ? 'REVIEW' : 'MOOD';
 
   const post = await prisma.post.create({
     data: {
       authorId: req.userId!,
-      kind: 'MOOD',
-      gradient: parsed.data.gradient,
-      emoji: parsed.data.emoji,
-      text: parsed.data.text?.trim() || null,
-      venueEventId: parsed.data.venueEventId ?? null,
+      kind,
+      gradient: gradient ?? null,
+      emoji: emoji ?? null,
+      mediaUrls,
+      text: text?.trim() || null,
+      venueEventId: venueEventId ?? null,
+      location: location?.trim() || null,
+      stars: stars ?? null,
+      vibes: vibes ?? [],
     },
     include: {
       author: { select: authorSelect },
@@ -201,7 +230,9 @@ router.get('/stories', async (req, res) => {
         id: string;
         gradient: string;
         emoji: string;
+        mediaUrl: string | null;
         caption: string | null;
+        location: string | null;
         createdAt: Date;
         expiresAt: Date;
         seen: boolean;
@@ -218,7 +249,9 @@ router.get('/stories', async (req, res) => {
       id: s.id,
       gradient: s.gradient,
       emoji: s.emoji,
+      mediaUrl: s.mediaUrl,
       caption: s.caption,
+      location: s.location,
       createdAt: s.createdAt,
       expiresAt: s.expiresAt,
       seen: s.views.length > 0,
@@ -247,7 +280,9 @@ router.get('/stories', async (req, res) => {
 const StoryBody = z.object({
   gradient: z.string().min(1).max(24),
   emoji: z.string().min(1).max(8),
+  mediaUrl: z.string().url().startsWith('https://res.cloudinary.com/').optional(),
   caption: z.string().max(160).optional(),
+  location: z.string().trim().max(80).optional(),
 });
 
 router.post('/stories', async (req, res) => {
@@ -259,7 +294,9 @@ router.post('/stories', async (req, res) => {
       authorId: req.userId!,
       gradient: parsed.data.gradient,
       emoji: parsed.data.emoji,
+      mediaUrl: parsed.data.mediaUrl ?? null,
       caption: parsed.data.caption?.trim() || null,
+      location: parsed.data.location?.trim() || null,
       expiresAt: new Date(Date.now() + STORY_TTL_MS),
     },
     include: { author: { select: authorSelect } },

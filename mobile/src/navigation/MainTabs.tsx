@@ -14,11 +14,13 @@ import { PartyApproved } from '../screens/PartyApproved';
 import { CommunityFeed } from '../screens/CommunityFeed';
 import { UserProfile } from '../screens/UserProfile';
 import { WriteReview } from '../screens/WriteReview';
+import { Composer } from '../screens/Composer';
 import { MoodComposer } from '../screens/MoodComposer';
 import { StoryComposer } from '../screens/StoryComposer';
 import { StoryViewer } from '../screens/StoryViewer';
 import { Comments } from '../screens/Comments';
 import { ValetBook } from '../screens/ValetBook';
+import { ValetPinLocation } from '../screens/ValetPinLocation';
 import { ValetFinding } from '../screens/ValetFinding';
 import { ValetTracking } from '../screens/ValetTracking';
 import { ValetCompleted } from '../screens/ValetCompleted';
@@ -74,6 +76,11 @@ const CommunityStack = () => (
       options={{ presentation: 'modal' }}
     />
     <CommunityStackNav.Screen
+      name="Composer"
+      component={Composer}
+      options={{ presentation: 'modal' }}
+    />
+    <CommunityStackNav.Screen
       name="MoodComposer"
       component={MoodComposer}
       options={{ presentation: 'modal' }}
@@ -100,6 +107,11 @@ const ValetStackNav = createNativeStackNavigator<ValetStackParamList>();
 const ValetStack = () => (
   <ValetStackNav.Navigator screenOptions={stackOpts}>
     <ValetStackNav.Screen name="ValetBook" component={ValetBook} />
+    <ValetStackNav.Screen
+      name="ValetPinLocation"
+      component={ValetPinLocation}
+      options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+    />
     <ValetStackNav.Screen name="ValetFinding" component={ValetFinding} />
     <ValetStackNav.Screen name="ValetTracking" component={ValetTracking} />
     <ValetStackNav.Screen name="ValetCompleted" component={ValetCompleted} />

@@ -59,6 +59,22 @@ model User {
   rides         Ride[]
   subscription  Subscription?
   accounts      Account[]
+  vehicle       UserVehicle?
+}
+
+// Rider's own car — required before they can order a valet (Phase 5).
+// The driver needs to know what they're getting behind the wheel of.
+model UserVehicle {
+  id            String   @id @default(cuid())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String   @unique
+  make          String   // "Mercedes"
+  model         String   // "C200"
+  color         String   // "Black"
+  plate         String   // "QAS 4718"
+  transmission  String   // "AUTOMATIC" | "MANUAL"
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 // Instagram-style accounts. A User (auth entity) owns one personal
@@ -272,6 +288,10 @@ model Post {
   // Optional venue/event reference for reviews or mood posts tied to a venue.
   venueEvent     Event?   @relation(fields: [venueEventId], references: [id])
   venueEventId   String?
+  // Free-text location label (neighborhood, city, custom venue name). Shown
+  // as a 📍 pin above the post body in the feed. Independent from
+  // venueEventId — a post may tag either, both, or neither.
+  location       String?
   createdAt      DateTime @default(now())
 
   likes          PostLike[]
@@ -320,6 +340,7 @@ model Story {
   emoji     String
   mediaUrl  String?
   caption   String?
+  location  String?
   createdAt DateTime @default(now())
   expiresAt DateTime
 
@@ -378,7 +399,11 @@ model Ride {
   driver         Driver?  @relation(fields: [driverId], references: [id])
   driverId       String?
   pickupLabel    String   // "CJC Zamalek · 26th of July"
+  pickupLat      Float?   // set when rider pins on map (phase 5 UX)
+  pickupLng      Float?
   dropoffLabel   String   // "Home · Maadi St. 9"
+  dropoffLat     Float?
+  dropoffLng     Float?
   distanceKm     Float    // 14.2
   etaMinutes     Int      // 22
   fareEgp        Int      // 220

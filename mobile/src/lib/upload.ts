@@ -24,10 +24,14 @@ const targetFor = (kind: UploadKind) => {
   }
 };
 
-// Unified source-picker. Returns an `ImagePicker.ImagePickerAsset`-shaped
-// object regardless of whether the user chose Camera, Gallery, or Files —
-// gives the upload pipeline a single input shape to cope with.
-export const pickImage = async (source: PickSource): Promise<{ uri: string } | null> => {
+// Unified source-picker. Returns an array of local URIs so the upload
+// pipeline can handle single (avatar/story) and multi (post carousel) with
+// one code path. `count` caps the maximum number of selections from the
+// gallery; camera and files always return 0-1 items.
+export const pickImages = async (
+  source: PickSource,
+  count: number = 1,
+): Promise<string[]> => {
   if (source === 'camera') {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) throw new Error('Camera permission is required.');
@@ -36,8 +40,8 @@ export const pickImage = async (source: PickSource): Promise<{ uri: string } | n
       quality: 1,
       allowsEditing: false,
     });
-    if (res.canceled || !res.assets[0]) return null;
-    return { uri: res.assets[0].uri };
+    if (res.canceled || !res.assets[0]) return [];
+    return [res.assets[0].uri];
   }
 
   if (source === 'gallery') {
@@ -46,20 +50,29 @@ export const pickImage = async (source: PickSource): Promise<{ uri: string } | n
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 1,
-      allowsMultipleSelection: false,
+      allowsMultipleSelection: count > 1,
+      selectionLimit: count > 1 ? count : 1,
       allowsEditing: false,
+      orderedSelection: true,
     });
-    if (res.canceled || !res.assets[0]) return null;
-    return { uri: res.assets[0].uri };
+    if (res.canceled) return [];
+    return res.assets.map((a) => a.uri);
   }
 
   // files — iOS Files.app, includes iCloud, Google Drive, etc.
   const res = await DocumentPicker.getDocumentAsync({
     type: ['image/jpeg', 'image/png', 'image/webp', 'image/heic'],
     copyToCacheDirectory: true,
+    multiple: count > 1,
   });
-  if (res.canceled || !res.assets?.[0]) return null;
-  return { uri: res.assets[0].uri };
+  if (res.canceled || !res.assets?.length) return [];
+  return res.assets.slice(0, count).map((a) => a.uri);
+};
+
+// Back-compat wrapper for code that expects a single image.
+export const pickImage = async (source: PickSource): Promise<{ uri: string } | null> => {
+  const uris = await pickImages(source, 1);
+  return uris[0] ? { uri: uris[0] } : null;
 };
 
 // Resize + compress on-device before uploading so a 12MP HEIC (~6MB) becomes
@@ -77,21 +90,16 @@ const preprocess = async (localUri: string, kind: UploadKind): Promise<{ uri: st
 // Full upload pipeline: pick → preprocess → request signature → multipart
 // POST direct to Cloudinary → return secure_url. Callers pass `token` so we
 // can auth against our backend for the signature request.
-export const pickAndUpload = async (
+// Single photo pipeline — preprocess + sign + upload one image.
+const uploadOne = async (
   token: string,
-  source: PickSource,
+  localUri: string,
   kind: UploadKind,
-): Promise<UploadedAsset | null> => {
-  const picked = await pickImage(source);
-  if (!picked) return null;
-
-  const processed = await preprocess(picked.uri, kind);
+): Promise<UploadedAsset> => {
+  const processed = await preprocess(localUri, kind);
   const sig = await api.signUpload(token, kind);
 
   const body = new FormData();
-  // React Native's FormData accepts a `{uri,type,name}` shape that TS's
-  // DOM lib doesn't know about. Cast through `unknown` so we keep the
-  // rest of the file strict-typed.
   body.append('file', {
     uri: processed.uri,
     type: 'image/jpeg',
@@ -115,4 +123,42 @@ export const pickAndUpload = async (
     bytes: number;
   };
   return { url: json.secure_url, width: json.width, height: json.height, bytes: json.bytes };
+};
+
+export const pickAndUpload = async (
+  token: string,
+  source: PickSource,
+  kind: UploadKind,
+): Promise<UploadedAsset | null> => {
+  const uris = await pickImages(source, 1);
+  if (uris.length === 0) return null;
+  return uploadOne(token, uris[0]!, kind);
+};
+
+// Multi-photo pipeline used by the Composer's carousel. `onProgress` fires
+// after each uploaded photo so the UI can update `1/N ... N/N`. Each photo
+// is uploaded in parallel (Cloudinary handles the concurrency fine; Render
+// only signs, never proxies the bytes).
+export const pickAndUploadMany = async (
+  token: string,
+  source: PickSource,
+  kind: UploadKind,
+  maxCount: number,
+  onProgress?: (done: number, total: number) => void,
+): Promise<UploadedAsset[]> => {
+  const uris = await pickImages(source, maxCount);
+  if (uris.length === 0) return [];
+
+  let done = 0;
+  const total = uris.length;
+  onProgress?.(0, total);
+  const assets = await Promise.all(
+    uris.map(async (uri) => {
+      const a = await uploadOne(token, uri, kind);
+      done += 1;
+      onProgress?.(done, total);
+      return a;
+    }),
+  );
+  return assets;
 };
