@@ -50,6 +50,19 @@ router.patch('/me/profile', async (req, res) => {
       vibes: parsed.data.vibes,
     },
   });
+
+  // Mirror the name onto the personal Account's displayName so the user's
+  // profile/settings views stay in sync. Only overwrite if the user hasn't
+  // customized their displayName yet (still the default 'Member').
+  await prisma.account.updateMany({
+    where: {
+      ownerUserId: req.userId!,
+      kind: 'USER',
+      OR: [{ displayName: 'Member' }, { displayName: '' }],
+    },
+    data: { displayName: parsed.data.name },
+  });
+
   return res.json({ user });
 });
 

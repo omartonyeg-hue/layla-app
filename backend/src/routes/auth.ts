@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { signToken } from '../lib/jwt.js';
 import { normalizePhone } from '../lib/phone.js';
+import { generateUniqueHandle, sanitizeHandleBase } from '../lib/handle.js';
 import { issueOtp, verifyOtp } from '../services/otp.js';
 
 const router = Router();
@@ -65,7 +66,24 @@ router.post('/otp/verify', async (req, res) => {
     where: { phone },
     create: { phone, phoneVerified: true },
     update: { phoneVerified: true },
+    include: { accounts: { where: { kind: 'USER' }, take: 1 } },
   });
+
+  // Every user has exactly one personal Account (kind=USER). Create it on
+  // first OTP verify so mentions/follow work from sign-in onward. Handle
+  // starts from the phone's local part; user can rename later.
+  if (user.accounts.length === 0) {
+    const base = sanitizeHandleBase(phone.replace(/^\+?20/, '')) || 'member';
+    const handle = await generateUniqueHandle(base);
+    await prisma.account.create({
+      data: {
+        ownerUserId: user.id,
+        kind: 'USER',
+        handle,
+        displayName: user.name?.trim() || 'Member',
+      },
+    });
+  }
 
   const token = signToken(user.id);
   return res.json({

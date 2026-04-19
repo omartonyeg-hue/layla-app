@@ -280,10 +280,16 @@ router.post('/stories/:id/view', async (req, res) => {
 });
 
 // ── Public profile (existing) ────────────────────────────────────
+// Accepts either a User id or an Account id in the route param; resolves to
+// the personal (kind=USER) Account and hydrates follow relationship + counts
+// alongside the existing host/review stats.
 router.get('/users/:id', async (req, res) => {
   const viewerId = req.userId!;
-  const user = await prisma.user.findUnique({
-    where: { id: req.params.id },
+  const param = req.params.id;
+
+  // Try User id first, then fall back to Account id.
+  let user = await prisma.user.findUnique({
+    where: { id: param },
     select: {
       id: true,
       name: true,
@@ -296,7 +302,87 @@ router.get('/users/:id', async (req, res) => {
       hostVerified: true,
     },
   });
-  if (!user) return res.status(404).json({ error: 'User not found' });
+  if (!user) {
+    const account = await prisma.account.findUnique({
+      where: { id: param },
+      select: { ownerUserId: true },
+    });
+    if (!account) return res.status(404).json({ error: 'User not found' });
+    user = await prisma.user.findUnique({
+      where: { id: account.ownerUserId },
+      select: {
+        id: true,
+        name: true,
+        avatarColor: true,
+        role: true,
+        city: true,
+        vibes: true,
+        hostRating: true,
+        hostedCount: true,
+        hostVerified: true,
+      },
+    });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+  }
+
+  // Load both the target's personal Account and the viewer's, so we can
+  // compute follow relationship + privacy gate.
+  const [targetAccount, viewerAccount] = await Promise.all([
+    prisma.account.findFirst({
+      where: { ownerUserId: user.id, kind: 'USER' },
+      select: {
+        id: true, ownerUserId: true, kind: true, status: true,
+        handle: true, displayName: true, bio: true,
+        avatarUrl: true, avatarColor: true,
+        isPrivate: true, isVerified: true, createdAt: true,
+      },
+    }),
+    prisma.account.findFirst({
+      where: { ownerUserId: viewerId, kind: 'USER' },
+      select: { id: true },
+    }),
+  ]);
+
+  const isMe = user.id === viewerId;
+  let follow:
+    | { isFollowing: boolean; hasPendingRequest: boolean; followsMe: boolean; canViewContent: boolean; followerCount: number; followingCount: number }
+    = { isFollowing: false, hasPendingRequest: false, followsMe: false, canViewContent: true, followerCount: 0, followingCount: 0 };
+
+  if (targetAccount) {
+    const [outgoing, incoming, followerCount, followingCount] = await Promise.all([
+      viewerAccount
+        ? prisma.follow.findUnique({
+            where: { followerId_followeeId: { followerId: viewerAccount.id, followeeId: targetAccount.id } },
+            select: { status: true },
+          })
+        : Promise.resolve(null),
+      viewerAccount
+        ? prisma.follow.findUnique({
+            where: { followerId_followeeId: { followerId: targetAccount.id, followeeId: viewerAccount.id } },
+            select: { status: true },
+          })
+        : Promise.resolve(null),
+      prisma.follow.count({ where: { followeeId: targetAccount.id, status: 'APPROVED' } }),
+      prisma.follow.count({ where: { followerId: targetAccount.id, status: 'APPROVED' } }),
+    ]);
+    const isFollowing = outgoing?.status === 'APPROVED';
+    const hasPendingRequest = outgoing?.status === 'PENDING';
+    const followsMe = incoming?.status === 'APPROVED';
+    const canViewContent = isMe || !targetAccount.isPrivate || isFollowing;
+    follow = { isFollowing, hasPendingRequest, followsMe, canViewContent, followerCount, followingCount };
+  }
+
+  // Private account + not approved follower: return header only.
+  if (!follow.canViewContent) {
+    return res.json({
+      user,
+      account: targetAccount ? { ...targetAccount, ...follow, isMe } : null,
+      posts: [],
+      hostedParties: [],
+      reviewCount: 0,
+      privacyBlocked: true,
+    });
+  }
 
   const [posts, hostedParties, reviewCount] = await Promise.all([
     prisma.post.findMany({
@@ -331,7 +417,14 @@ router.get('/users/:id', async (req, res) => {
     likedByMe: likes.length > 0,
   }));
 
-  return res.json({ user, posts: shapedPosts, hostedParties, reviewCount });
+  return res.json({
+    user,
+    account: targetAccount ? { ...targetAccount, ...follow, isMe } : null,
+    posts: shapedPosts,
+    hostedParties,
+    reviewCount,
+    privacyBlocked: false,
+  });
 });
 
 export default router;

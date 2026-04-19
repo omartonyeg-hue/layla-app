@@ -58,6 +58,94 @@ model User {
   storyViews    StoryView[]
   rides         Ride[]
   subscription  Subscription?
+  accounts      Account[]
+}
+
+// Instagram-style accounts. A User (auth entity) owns one personal
+// Account (kind=USER) created at first sign-in. Users can additionally own
+// Accounts of kind VENUE, DJ, or ORGANIZER — each with its own followers,
+// handle, bio, privacy. Posts/Stories/Likes still reference User directly
+// for now (migration churn isn't worth it for MVP); profile responses
+// resolve User → personal Account for display. Future phases move post
+// authorship onto Account.
+enum AccountKind {
+  USER       // personal profile, auto-created at signup
+  VENUE      // club / bar / event space
+  DJ         // performer / artist
+  ORGANIZER  // promoter / collective / label
+}
+
+// USER accounts are always ACTIVE at creation. VENUE/DJ/ORGANIZER accounts
+// start PENDING_REVIEW and are gated by admin approval before they can be
+// followed, mentioned, or post. Rejected accounts are retained for appeal.
+enum AccountStatus {
+  ACTIVE
+  PENDING_REVIEW
+  REJECTED
+}
+
+model Account {
+  id             String        @id @default(cuid())
+  ownerUser      User          @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  ownerUserId    String
+  kind           AccountKind
+  status         AccountStatus @default(ACTIVE)
+  // Admin review metadata (null for USER kind; set when a venue/DJ/org
+  // account is decided on). `reviewNote` surfaces the rejection reason to
+  // the applicant in the app.
+  reviewedAt     DateTime?
+  reviewedById   String?       // User id of the admin; no FK to keep admin schema independent for now
+  reviewNote     String?
+  // Lowercase unique handle used as @mention key. 3-20 chars,
+  // [a-z0-9_] — enforced in the route layer.
+  handle         String        @unique
+  displayName    String
+  bio            String?       // 160-char max
+  avatarUrl      String?       // Cloudinary URL (Phase 2)
+  avatarColor    String?       // fallback when no avatarUrl
+  isPrivate      Boolean       @default(false)
+  isVerified     Boolean       @default(false)
+  // Application info captured at creation for admin review (venues give
+  // address/city; DJs/organizers give links + description).
+  applicationCity     City?
+  applicationAddress  String?
+  applicationLinks    String[] @default([])
+  applicationNote     String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  followers      Follow[]      @relation("Followee")
+  following      Follow[]      @relation("Follower")
+
+  @@unique([ownerUserId, kind], map: "Account_owner_kind_unique_personal")
+  @@index([ownerUserId])
+  @@index([kind])
+  @@index([status])
+}
+// Note: the @@unique on (ownerUserId, kind) prevents a User from having
+// two personal accounts. VENUE/DJ/ORGANIZER accounts would need a
+// different constraint — current version allows one of each kind per
+// user, which is fine for MVP; remove if/when we want users to own
+// multiple venues.
+
+enum FollowStatus {
+  APPROVED   // default; set immediately when target isPrivate=false
+  PENDING    // waiting for followee approval when target isPrivate=true
+}
+
+model Follow {
+  id          String       @id @default(cuid())
+  follower    Account      @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  followerId  String
+  followee    Account      @relation("Followee", fields: [followeeId], references: [id], onDelete: Cascade)
+  followeeId  String
+  status      FollowStatus @default(APPROVED)
+  createdAt   DateTime     @default(now())
+  decidedAt   DateTime?
+
+  @@unique([followerId, followeeId])
+  @@index([followeeId, status])
+  @@index([followerId, status])
 }
 
 // Phase 2 — Events.
