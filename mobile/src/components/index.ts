@@ -29,3 +29,4 @@ export { EmptyState } from './EmptyState';
 export { PressScale } from './PressScale';
 export { StoryTray } from './StoryTray';
 export { ComposeSheet } from './ComposeSheet';
+export { FollowButton } from './FollowButton';

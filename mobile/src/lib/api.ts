@@ -161,6 +161,75 @@ export const api = {
       body: JSON.stringify({ action }),
     }),
 
+  // ── Accounts & Follow (Instagram-style) ────────────────────
+  getMyAccount: (token: string) =>
+    request<{ account: MyAccount; otherAccounts: Account[] }>('/accounts/me', { token }),
+
+  getAccount: (token: string, id: string) =>
+    request<{ account: AccountView }>(`/accounts/${id}`, { token }),
+
+  getAccountByHandle: (token: string, handle: string) =>
+    request<{ account: Account }>(`/accounts/by-handle/${handle.toLowerCase()}`, { token }),
+
+  updateMyAccount: (
+    token: string,
+    data: Partial<{ handle: string; displayName: string; bio: string | null; avatarColor: string | null; isPrivate: boolean }>,
+  ) =>
+    request<{ account: Account }>('/accounts/me', {
+      method: 'PATCH',
+      token,
+      body: JSON.stringify(data),
+    }),
+
+  toggleFollow: (token: string, accountId: string) =>
+    request<{ following: boolean; pending: boolean; followerCount: number }>(
+      `/accounts/${accountId}/follow`,
+      { method: 'POST', token, body: '{}' },
+    ),
+
+  listFollowers: (token: string, accountId: string) =>
+    request<{ accounts: Account[] }>(`/accounts/${accountId}/followers`, { token }),
+
+  listFollowing: (token: string, accountId: string) =>
+    request<{ accounts: Account[] }>(`/accounts/${accountId}/following`, { token }),
+
+  listFollowRequests: (token: string) =>
+    request<{ requests: Array<{ id: string; createdAt: string; account: Account }> }>(
+      '/accounts/me/follow-requests',
+      { token },
+    ),
+
+  decideFollowRequest: (token: string, requestId: string, action: 'APPROVE' | 'DECLINE') =>
+    request<{ ok: true; status: 'APPROVED' | 'DECLINED' }>(
+      `/accounts/me/follow-requests/${requestId}/decide`,
+      { method: 'POST', token, body: JSON.stringify({ action }) },
+    ),
+
+  checkHandleAvailable: (token: string, handle: string) =>
+    request<{ available: boolean; reason?: string }>(
+      `/accounts/handle-available/${handle.toLowerCase()}`,
+      { token },
+    ),
+
+  createAccount: (
+    token: string,
+    data: {
+      kind: 'VENUE' | 'DJ' | 'ORGANIZER';
+      handle: string;
+      displayName: string;
+      bio?: string;
+      applicationCity?: City;
+      applicationAddress?: string;
+      applicationLinks?: string[];
+      applicationNote?: string;
+    },
+  ) =>
+    request<{ account: Account }>('/accounts', {
+      method: 'POST',
+      token,
+      body: JSON.stringify(data),
+    }),
+
   // ── Phase 4 — Community ────────────────────────────────────
   listFeed: (token: string) =>
     request<{ posts: Post[] }>('/community/feed', { token }),
@@ -224,9 +293,11 @@ export const api = {
   getPublicProfile: (token: string, userId: string) =>
     request<{
       user: PublicProfile;
+      account: AccountView | null;
       posts: Post[];
       hostedParties: ProfileParty[];
       reviewCount: number;
+      privacyBlocked: boolean;
     }>(`/community/users/${userId}`, { token }),
 
   // ── Phase 5 — Valet ────────────────────────────────────────
@@ -379,6 +450,41 @@ export type RideRating = {
   comment: string | null;
   createdAt: string;
 };
+
+export type AccountKind = 'USER' | 'VENUE' | 'DJ' | 'ORGANIZER';
+export type AccountStatus = 'ACTIVE' | 'PENDING_REVIEW' | 'REJECTED';
+
+// Public-facing account projection returned by /accounts/* and /community.
+export type Account = {
+  id: string;
+  ownerUserId: string;
+  kind: AccountKind;
+  status: AccountStatus;
+  handle: string;
+  displayName: string;
+  bio: string | null;
+  avatarUrl: string | null;
+  avatarColor: string | null;
+  isPrivate: boolean;
+  isVerified: boolean;
+  createdAt: string;
+};
+
+// Same as Account, plus the caller's relationship to it. Returned by
+// GET /accounts/:id and /community/users/:id.
+export type AccountView = Account & {
+  followerCount: number;
+  followingCount: number;
+  isMe: boolean;
+  isFollowing: boolean;
+  hasPendingRequest: boolean;
+  followsMe: boolean;
+  canViewContent: boolean;
+};
+
+// /accounts/me — caller's personal account plus any venue/dj/org accounts
+// they own (approved or pending).
+export type MyAccount = Account & { followerCount: number; followingCount: number };
 
 export type PostKind = 'REVIEW' | 'MOOD' | 'PHOTO' | 'TEXT';
 

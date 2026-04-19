@@ -82,6 +82,9 @@ export type RootStackParamList = {
   ProfileEdit: undefined;
   HostInbox: undefined;
   CreateParty: undefined;
+  AccountEdit: undefined;
+  CreateProAccount: undefined;
+  FollowRequests: undefined;
 };
 
 declare global {
