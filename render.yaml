@@ -18,7 +18,10 @@ services:
     plan: free
     region: frankfurt          # closest to Egypt
     rootDir: .                 # repo root so npm workspaces resolve
-    buildCommand: npm install && npm run build --workspace=backend
+    # --include=dev because Render sets NODE_ENV=production for the whole
+    # service (incl. build), which would otherwise skip devDependencies
+    # and starve tsc + @types/* during the build.
+    buildCommand: npm install --include=dev && npm run build --workspace=backend
     startCommand: npm run start --workspace=backend
     healthCheckPath: /health
     autoDeploy: true
