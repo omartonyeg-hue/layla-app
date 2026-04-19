@@ -52,6 +52,10 @@ model User {
   hostedParties Party[]         @relation("PartyHost")
   partyRequests PartyRequest[]
   posts         Post[]
+  postLikes     PostLike[]
+  postComments  PostComment[]
+  stories       Story[]
+  storyViews    StoryView[]
   rides         Ride[]
   subscription  Subscription?
 }
@@ -150,10 +154,13 @@ model Party {
 }
 
 // Phase 4 — Community.
-// Single Post table keyed by `kind` so reviews, photo posts, and plain text
+// Single Post table keyed by `kind` so reviews, mood posts, and plain text
 // posts share the same feed model. Only REVIEW posts care about stars/vibes.
+// MOOD posts carry a gradient token key + emoji glyph and render as a coloured
+// canvas card (real photo upload is deferred — no storage infra yet).
 enum PostKind {
   REVIEW
+  MOOD
   PHOTO
   TEXT
 }
@@ -167,14 +174,76 @@ model Post {
   // REVIEW-only:
   stars          Int?     // 1–5
   vibes          String[] @default([])
-  // Optional venue/event reference for reviews or photo posts tied to a venue.
+  // MOOD (or any visual post) — gradient token key + centered emoji glyph.
+  gradient       String?
+  emoji          String?
+  // Optional venue/event reference for reviews or mood posts tied to a venue.
   venueEvent     Event?   @relation(fields: [venueEventId], references: [id])
   venueEventId   String?
   createdAt      DateTime @default(now())
 
+  likes          PostLike[]
+  comments       PostComment[]
+
   @@index([createdAt])
   @@index([authorId, createdAt])
   @@index([venueEventId, createdAt])
+}
+
+model PostLike {
+  id        String   @id @default(cuid())
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  createdAt DateTime @default(now())
+
+  @@unique([postId, userId])
+  @@index([postId])
+  @@index([userId, createdAt])
+}
+
+model PostComment {
+  id        String   @id @default(cuid())
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId    String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId  String
+  text      String
+  createdAt DateTime @default(now())
+
+  @@index([postId, createdAt])
+  @@index([authorId, createdAt])
+}
+
+// Stories are ephemeral (default 24h) and render as a gradient canvas + emoji
+// + optional caption — same "mood" visual language as MOOD posts.
+model Story {
+  id        String   @id @default(cuid())
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId  String
+  gradient  String
+  emoji     String
+  caption   String?
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  views     StoryView[]
+
+  @@index([authorId, createdAt])
+  @@index([expiresAt])
+}
+
+model StoryView {
+  id        String   @id @default(cuid())
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  storyId   String
+  viewer    User     @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+  viewerId  String
+  createdAt DateTime @default(now())
+
+  @@unique([storyId, viewerId])
+  @@index([viewerId, createdAt])
 }
 
 // Phase 5 — Valet.

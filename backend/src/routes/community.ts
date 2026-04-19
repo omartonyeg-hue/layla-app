@@ -23,18 +23,30 @@ const venueSelect = {
   gradient: true,
 } as const;
 
-router.get('/feed', async (_req, res) => {
+// ── Feed ─────────────────────────────────────────────────────────
+// Enriches each post with like/comment counts and whether the caller liked it.
+router.get('/feed', async (req, res) => {
+  const userId = req.userId!;
   const posts = await prisma.post.findMany({
     orderBy: { createdAt: 'desc' },
     take: 50,
     include: {
       author: { select: authorSelect },
       venueEvent: { select: venueSelect },
+      _count: { select: { likes: true, comments: true } },
+      likes: { where: { userId }, select: { id: true } },
     },
   });
-  return res.json({ posts });
+  const shaped = posts.map(({ _count, likes, ...p }) => ({
+    ...p,
+    likeCount: _count.likes,
+    commentCount: _count.comments,
+    likedByMe: likes.length > 0,
+  }));
+  return res.json({ posts: shaped });
 });
 
+// ── Reviews (existing) ───────────────────────────────────────────
 const ReviewBody = z.object({
   stars: z.number().int().min(1).max(5),
   vibes: z.array(z.string().max(32)).max(8).default([]),
@@ -65,11 +77,211 @@ router.post('/reviews', async (req, res) => {
       venueEvent: { select: venueSelect },
     },
   });
-  return res.json({ post });
+  return res.json({
+    post: { ...post, likeCount: 0, commentCount: 0, likedByMe: false },
+  });
 });
 
-// Public profile of another user — read-only for Phase 4 MVP.
+// ── Mood posts ───────────────────────────────────────────────────
+// Gradient canvas + emoji + optional caption. No photo upload infra yet; this
+// matches LAYLA's gold/violet/sunset visual language.
+const MoodBody = z.object({
+  gradient: z.string().min(1).max(24),
+  emoji: z.string().min(1).max(8),
+  text: z.string().max(280).optional(),
+  venueEventId: z.string().optional(),
+});
+
+router.post('/posts', async (req, res) => {
+  const parsed = MoodBody.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  if (parsed.data.venueEventId) {
+    const ev = await prisma.event.findUnique({ where: { id: parsed.data.venueEventId } });
+    if (!ev) return res.status(400).json({ error: 'Unknown venue' });
+  }
+
+  const post = await prisma.post.create({
+    data: {
+      authorId: req.userId!,
+      kind: 'MOOD',
+      gradient: parsed.data.gradient,
+      emoji: parsed.data.emoji,
+      text: parsed.data.text?.trim() || null,
+      venueEventId: parsed.data.venueEventId ?? null,
+    },
+    include: {
+      author: { select: authorSelect },
+      venueEvent: { select: venueSelect },
+    },
+  });
+  return res.json({
+    post: { ...post, likeCount: 0, commentCount: 0, likedByMe: false },
+  });
+});
+
+// ── Likes ────────────────────────────────────────────────────────
+// Toggle. Returns the fresh like state so the client can reconcile optimistic
+// updates without fetching the whole feed.
+router.post('/posts/:id/like', async (req, res) => {
+  const userId = req.userId!;
+  const postId = req.params.id;
+  const post = await prisma.post.findUnique({ where: { id: postId }, select: { id: true } });
+  if (!post) return res.status(404).json({ error: 'Post not found' });
+
+  const existing = await prisma.postLike.findUnique({
+    where: { postId_userId: { postId, userId } },
+    select: { id: true },
+  });
+
+  if (existing) {
+    await prisma.postLike.delete({ where: { id: existing.id } });
+  } else {
+    await prisma.postLike.create({ data: { postId, userId } });
+  }
+
+  const likeCount = await prisma.postLike.count({ where: { postId } });
+  return res.json({ liked: !existing, likeCount });
+});
+
+// ── Comments ─────────────────────────────────────────────────────
+router.get('/posts/:id/comments', async (req, res) => {
+  const postId = req.params.id;
+  const comments = await prisma.postComment.findMany({
+    where: { postId },
+    orderBy: { createdAt: 'asc' },
+    include: { author: { select: authorSelect } },
+    take: 200,
+  });
+  return res.json({ comments });
+});
+
+const CommentBody = z.object({ text: z.string().min(1).max(400) });
+router.post('/posts/:id/comments', async (req, res) => {
+  const parsed = CommentBody.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  const postId = req.params.id;
+  const post = await prisma.post.findUnique({ where: { id: postId }, select: { id: true } });
+  if (!post) return res.status(404).json({ error: 'Post not found' });
+
+  const comment = await prisma.postComment.create({
+    data: { postId, authorId: req.userId!, text: parsed.data.text.trim() },
+    include: { author: { select: authorSelect } },
+  });
+  const commentCount = await prisma.postComment.count({ where: { postId } });
+  return res.json({ comment, commentCount });
+});
+
+// ── Stories ──────────────────────────────────────────────────────
+// Feed shape is grouped-by-author: tray shows one ring per author, viewer
+// scrolls through that author's segments. 24h TTL; expired entries are filtered
+// at read time (no cron — cheap for the phase-4 volume).
+const STORY_TTL_MS = 24 * 60 * 60 * 1000;
+
+router.get('/stories', async (req, res) => {
+  const userId = req.userId!;
+  const now = new Date();
+
+  const stories = await prisma.story.findMany({
+    where: { expiresAt: { gt: now } },
+    orderBy: { createdAt: 'asc' },
+    include: {
+      author: { select: authorSelect },
+      views: { where: { viewerId: userId }, select: { id: true } },
+    },
+  });
+
+  // Group by author, preserving chronological order inside each group.
+  const groups = new Map<
+    string,
+    {
+      author: typeof stories[number]['author'];
+      stories: Array<{
+        id: string;
+        gradient: string;
+        emoji: string;
+        caption: string | null;
+        createdAt: Date;
+        expiresAt: Date;
+        seen: boolean;
+      }>;
+    }
+  >();
+
+  for (const s of stories) {
+    const g = groups.get(s.authorId) ?? {
+      author: s.author,
+      stories: [],
+    };
+    g.stories.push({
+      id: s.id,
+      gradient: s.gradient,
+      emoji: s.emoji,
+      caption: s.caption,
+      createdAt: s.createdAt,
+      expiresAt: s.expiresAt,
+      seen: s.views.length > 0,
+    });
+    groups.set(s.authorId, g);
+  }
+
+  const trayGroups = Array.from(groups.values()).map((g) => ({
+    author: g.author,
+    stories: g.stories,
+    allSeen: g.stories.every((s) => s.seen),
+    latestAt: g.stories[g.stories.length - 1]?.createdAt ?? null,
+    isMe: g.author.id === userId,
+  }));
+
+  // Sort: me first, then unseen groups, then seen groups; within each, newest first.
+  trayGroups.sort((a, b) => {
+    if (a.isMe !== b.isMe) return a.isMe ? -1 : 1;
+    if (a.allSeen !== b.allSeen) return a.allSeen ? 1 : -1;
+    return (b.latestAt?.getTime() ?? 0) - (a.latestAt?.getTime() ?? 0);
+  });
+
+  return res.json({ groups: trayGroups });
+});
+
+const StoryBody = z.object({
+  gradient: z.string().min(1).max(24),
+  emoji: z.string().min(1).max(8),
+  caption: z.string().max(160).optional(),
+});
+
+router.post('/stories', async (req, res) => {
+  const parsed = StoryBody.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  const story = await prisma.story.create({
+    data: {
+      authorId: req.userId!,
+      gradient: parsed.data.gradient,
+      emoji: parsed.data.emoji,
+      caption: parsed.data.caption?.trim() || null,
+      expiresAt: new Date(Date.now() + STORY_TTL_MS),
+    },
+    include: { author: { select: authorSelect } },
+  });
+  return res.json({ story });
+});
+
+router.post('/stories/:id/view', async (req, res) => {
+  const storyId = req.params.id;
+  const viewerId = req.userId!;
+  // Upsert a view row — silent on repeat views.
+  await prisma.storyView.upsert({
+    where: { storyId_viewerId: { storyId, viewerId } },
+    update: {},
+    create: { storyId, viewerId },
+  });
+  return res.json({ ok: true });
+});
+
+// ── Public profile (existing) ────────────────────────────────────
 router.get('/users/:id', async (req, res) => {
+  const viewerId = req.userId!;
   const user = await prisma.user.findUnique({
     where: { id: req.params.id },
     select: {
@@ -96,6 +308,8 @@ router.get('/users/:id', async (req, res) => {
       include: {
         author: { select: authorSelect },
         venueEvent: { select: venueSelect },
+        _count: { select: { likes: true, comments: true } },
+        likes: { where: { userId: viewerId }, select: { id: true } },
       },
     }),
     prisma.party.findMany({
@@ -110,7 +324,14 @@ router.get('/users/:id', async (req, res) => {
     prisma.post.count({ where: { authorId: user.id, kind: 'REVIEW' } }),
   ]);
 
-  return res.json({ user, posts, hostedParties, reviewCount });
+  const shapedPosts = posts.map(({ _count, likes, ...p }) => ({
+    ...p,
+    likeCount: _count.likes,
+    commentCount: _count.comments,
+    likedByMe: likes.length > 0,
+  }));
+
+  return res.json({ user, posts: shapedPosts, hostedParties, reviewCount });
 });
 
 export default router;
