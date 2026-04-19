@@ -12,7 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { color, fontFamily, radius } from '../theme/tokens';
-import { Avatar } from '../components';
+import { Avatar, RichCaption } from '../components';
 import { resolveGradient } from '../lib/gradients';
 import { api, type StoryGroup } from '../lib/api';
 import { useSession } from '../lib/AuthContext';
@@ -268,7 +268,7 @@ export const StoryViewer: React.FC<Props> = ({ navigation, route }) => {
                   borderColor: 'rgba(255,255,255,0.1)',
                 }}
               >
-                <Text
+                <RichCaption
                   style={{
                     color: color.text.primary,
                     fontSize: 15,
@@ -279,7 +279,7 @@ export const StoryViewer: React.FC<Props> = ({ navigation, route }) => {
                   }}
                 >
                   {segment.caption}
-                </Text>
+                </RichCaption>
               </View>
             </View>
           ) : null}

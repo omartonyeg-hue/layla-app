@@ -302,6 +302,7 @@ export const UserProfile: React.FC<Props> = ({ navigation, route }) => {
                       );
                     }}
                     onOpenComments={(postId) => navigation.navigate('Comments', { postId })}
+                    onPressMention={(userId) => navigation.push('UserProfile', { userId })}
                   />
                 ))}
               </View>

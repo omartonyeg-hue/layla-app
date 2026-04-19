@@ -31,3 +31,5 @@ export { StoryTray } from './StoryTray';
 export { ComposeSheet } from './ComposeSheet';
 export { FollowButton } from './FollowButton';
 export { MediaPickerSheet } from './MediaPickerSheet';
+export { MentionTypeaheadList } from './MentionTypeaheadList';
+export { RichCaption } from './RichCaption';

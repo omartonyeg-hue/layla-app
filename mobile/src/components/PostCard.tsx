@@ -3,10 +3,11 @@ import { View, Text, Pressable, Animated, Share, Image, ScrollView, Dimensions }
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path } from 'react-native-svg';
 import { color, radius, fontFamily } from '../theme/tokens';
-import { Avatar, Micro, Body, VerifiedBadge, StarRating } from './index';
+import { Avatar, Micro, Body, VerifiedBadge, StarRating, RichCaption } from './index';
 import { resolveGradient } from '../lib/gradients';
 import { haptic } from '../lib/haptics';
-import type { Post } from '../lib/api';
+import { api, type Post } from '../lib/api';
+import { useSession } from '../lib/AuthContext';
 
 // Unified feed item. Review / Mood / Text share the same author + footer; only
 // the body swaps. Like is optimistic — we update count immediately and reconcile
@@ -17,6 +18,9 @@ type Props = {
   onPressAuthor?: () => void;
   onToggleLike: (postId: string, nextLiked: boolean) => Promise<void>;
   onOpenComments: (postId: string) => void;
+  // Tapping an @mention resolves the handle → user and navigates. The
+  // lookup happens at tap time so the caption parser stays stateless.
+  onPressMention?: (userId: string) => void;
 };
 
 const timeAgo = (iso: string) => {
@@ -172,12 +176,21 @@ const HeartIcon: React.FC<{ filled: boolean; size?: number }> = ({ filled, size 
   </Svg>
 );
 
-export const PostCard: React.FC<Props> = ({ post, onPressAuthor, onToggleLike, onOpenComments }) => {
+export const PostCard: React.FC<Props> = ({ post, onPressAuthor, onToggleLike, onOpenComments, onPressMention }) => {
+  const { token } = useSession();
   const authorColor = post.author.avatarColor ?? color.gold[500];
   const [liked, setLiked] = useState(post.likedByMe);
   const [likeCount, setLikeCount] = useState(post.likeCount);
   const [commentCount, setCommentCount] = useState(post.commentCount);
   const heartScale = useRef(new Animated.Value(1)).current;
+
+  const handleMentionTap = async (handle: string) => {
+    if (!onPressMention) return;
+    try {
+      const { account } = await api.getAccountByHandle(token, handle);
+      onPressMention(account.ownerUserId);
+    } catch { /* silent */ }
+  };
 
   // Keep local state in sync if feed reloads with fresh counts.
   React.useEffect(() => {
@@ -279,9 +292,18 @@ export const PostCard: React.FC<Props> = ({ post, onPressAuthor, onToggleLike, o
       ) : null}
 
       {post.text ? (
-        <Body color={color.text.primary} style={{ marginTop: 10, lineHeight: 20 }}>
+        <RichCaption
+          style={{
+            color: color.text.primary,
+            marginTop: 10,
+            fontSize: 13,
+            lineHeight: 20,
+            fontFamily: fontFamily.body,
+          }}
+          onPressMention={handleMentionTap}
+        >
           {post.text}
-        </Body>
+        </RichCaption>
       ) : null}
 
       <VenuePreview post={post} />

@@ -218,6 +218,20 @@ export const api = {
       { token },
     ),
 
+  searchAccounts: (
+    token: string,
+    q: string,
+    opts?: { kind?: 'USER' | 'VENUE' | 'DJ' | 'ORGANIZER'; limit?: number },
+  ) => {
+    const params = new URLSearchParams({ q });
+    if (opts?.kind) params.set('kind', opts.kind);
+    if (opts?.limit) params.set('limit', String(opts.limit));
+    return request<{ accounts: Account[] }>(
+      `/accounts/search?${params.toString()}`,
+      { token },
+    );
+  },
+
   // ── Cloudinary signed upload ───────────────────────────────
   signUpload: (token: string, kind: 'avatar' | 'post' | 'story') =>
     request<{
@@ -329,7 +343,17 @@ export const api = {
 
   createRide: (
     token: string,
-    data: { pickupLabel: string; dropoffLabel: string; distanceKm: number; etaMinutes: number; fareEgp: number },
+    data: {
+      pickupLabel: string;
+      pickupLat?: number;
+      pickupLng?: number;
+      dropoffLabel: string;
+      dropoffLat?: number;
+      dropoffLng?: number;
+      distanceKm: number;
+      etaMinutes: number;
+      fareEgp: number;
+    },
   ) =>
     request<{ ride: Ride }>('/valet/rides', {
       method: 'POST',
@@ -452,7 +476,11 @@ export type Ride = {
   driverId: string | null;
   driver: DriverSummary | null;
   pickupLabel: string;
+  pickupLat: number | null;
+  pickupLng: number | null;
   dropoffLabel: string;
+  dropoffLat: number | null;
+  dropoffLng: number | null;
   distanceKm: number;
   etaMinutes: number;
   fareEgp: number;

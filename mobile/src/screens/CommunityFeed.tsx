@@ -170,6 +170,7 @@ export const CommunityFeed: React.FC = () => {
                   onPressAuthor={() => onOpenUser(p.author.id)}
                   onToggleLike={toggleLike}
                   onOpenComments={onOpenComments}
+                  onPressMention={onOpenUser}
                 />
               ))
             )}

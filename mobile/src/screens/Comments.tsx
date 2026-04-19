@@ -11,11 +11,12 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { color, fontFamily, radius } from '../theme/tokens';
-import { Avatar, Micro } from '../components';
+import { Avatar, Micro, MentionTypeaheadList, RichCaption } from '../components';
 import { api, ApiError, type PostComment } from '../lib/api';
 import { useSession } from '../lib/AuthContext';
 import { haptic } from '../lib/haptics';
 import { useKeyboardHeight } from '../lib/useKeyboardHeight';
+import { useMentionTypeahead } from '../lib/mentionTypeahead';
 import type { CommunityStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<CommunityStackParamList, 'Comments'>;
@@ -40,9 +41,22 @@ export const Comments: React.FC<Props> = ({ navigation, route }) => {
   const keyboardHeight = useKeyboardHeight();
   const [comments, setComments] = useState<PostComment[] | null>(null);
   const [text, setText] = useState('');
+  const [cursor, setCursor] = useState(0);
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
+  const inputRef = useRef<TextInput>(null);
+  const mention = useMentionTypeahead(token, text, setText, cursor);
+
+  // Tap a @mention → look the handle up and open that user's profile.
+  const openMention = async (handle: string) => {
+    try {
+      const { account } = await api.getAccountByHandle(token, handle);
+      navigation.navigate('UserProfile', { userId: account.ownerUserId });
+    } catch {
+      /* silent — mention may have been to a handle that doesn't exist */
+    }
+  };
 
   const load = async () => {
     try {
@@ -148,7 +162,7 @@ export const Comments: React.FC<Props> = ({ navigation, route }) => {
                     </Text>
                     <Text style={{ color: color.text.muted, fontSize: 11 }}>· {timeAgo(c.createdAt)}</Text>
                   </View>
-                  <Text
+                  <RichCaption
                     style={{
                       color: color.text.primary,
                       fontSize: 14,
@@ -156,9 +170,10 @@ export const Comments: React.FC<Props> = ({ navigation, route }) => {
                       marginTop: 3,
                       fontFamily: fontFamily.body,
                     }}
+                    onPressMention={openMention}
                   >
                     {c.text}
-                  </Text>
+                  </RichCaption>
                 </View>
               </View>
             ))
@@ -166,6 +181,22 @@ export const Comments: React.FC<Props> = ({ navigation, route }) => {
           {error ? <Text style={{ color: color.rose, fontSize: 13 }}>{error}</Text> : null}
         </ScrollView>
       </SafeAreaView>
+
+      {/* Mention typeahead — sits between the scroll view and composer, above
+          the keyboard. Null-rendered when there's no active @fragment. */}
+      {mention.active ? (
+        <MentionTypeaheadList
+          results={mention.results}
+          loading={mention.loading}
+          onPick={(account) => {
+            const { cursor: nextCursor } = mention.select(account);
+            // Re-focus the input and move the cursor to the insert point so
+            // the typeahead closes cleanly.
+            setCursor(nextCursor);
+            setTimeout(() => inputRef.current?.setNativeProps({ selection: { start: nextCursor, end: nextCursor } }), 0);
+          }}
+        />
+      ) : null}
 
       {/* Composer pinned above keyboard. Sits outside SafeAreaView so we
           control the bottom padding ourselves (safe-area vs keyboard). */}
@@ -182,8 +213,10 @@ export const Comments: React.FC<Props> = ({ navigation, route }) => {
         }}
       >
         <TextInput
+          ref={inputRef}
           value={text}
           onChangeText={(t) => setText(t.slice(0, MAX_COMMENT))}
+          onSelectionChange={(e) => setCursor(e.nativeEvent.selection.end)}
           placeholder="Add a comment…"
           placeholderTextColor={color.text.muted}
           multiline

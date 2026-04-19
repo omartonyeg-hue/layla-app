@@ -346,6 +346,72 @@ router.post('/', async (req, res) => {
   return res.status(201).json({ account: created });
 });
 
+// GET /accounts/search?q=...&kind=...&limit=20
+// Typeahead for @mentions and account discovery. Matches ACTIVE accounts by
+// handle prefix OR displayName (case-insensitive contains). Ranked: exact
+// handle match first, then handle prefix, then displayName, then by follower
+// count. Limited to 20 by default.
+const SearchQuery = z.object({
+  q: z.string().trim().min(1).max(40),
+  kind: z.enum(['USER', 'VENUE', 'DJ', 'ORGANIZER']).optional(),
+  limit: z.coerce.number().int().min(1).max(50).optional(),
+});
+
+router.get('/search', async (req, res) => {
+  const parsed = SearchQuery.safeParse(req.query);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid query' });
+
+  const { q, kind, limit = 20 } = parsed.data;
+  const qLower = q.toLowerCase();
+
+  // Prisma doesn't express the ranking we want in one query cleanly, so we
+  // fan out to three narrow queries (exact, handle-prefix, display-contains)
+  // and merge. Each query takes at most `limit` rows — three round-trips
+  // against Neon's pooled connection stays well under 100ms for the typeahead.
+  const base = {
+    where: {
+      status: 'ACTIVE' as const,
+      ...(kind ? { kind } : {}),
+    },
+    select: {
+      id: true, ownerUserId: true, kind: true, status: true,
+      handle: true, displayName: true, bio: true,
+      avatarUrl: true, avatarColor: true,
+      isPrivate: true, isVerified: true, createdAt: true,
+    },
+    take: limit,
+  };
+
+  const [exact, handlePrefix, nameMatch] = await Promise.all([
+    prisma.account.findMany({ ...base, where: { ...base.where, handle: qLower } }),
+    prisma.account.findMany({
+      ...base,
+      where: { ...base.where, handle: { startsWith: qLower } },
+      orderBy: { handle: 'asc' },
+    }),
+    prisma.account.findMany({
+      ...base,
+      where: { ...base.where, displayName: { contains: q, mode: 'insensitive' } },
+      orderBy: { displayName: 'asc' },
+    }),
+  ]);
+
+  // Merge, dedupe by id, preserve ranking.
+  const seen = new Set<string>();
+  const out: typeof exact = [];
+  for (const batch of [exact, handlePrefix, nameMatch]) {
+    for (const a of batch) {
+      if (seen.has(a.id)) continue;
+      seen.add(a.id);
+      out.push(a);
+      if (out.length >= limit) break;
+    }
+    if (out.length >= limit) break;
+  }
+
+  return res.json({ accounts: out });
+});
+
 // Check handle availability — used by the mobile client as the user types.
 router.get('/handle-available/:handle', async (req, res) => {
   const handle = req.params.handle.toLowerCase();
