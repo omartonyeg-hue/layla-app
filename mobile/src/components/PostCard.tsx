@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { View, Text, Pressable, Animated, Share } from 'react-native';
+import { View, Text, Pressable, Animated, Share, Image, ScrollView, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path } from 'react-native-svg';
 import { color, radius, fontFamily } from '../theme/tokens';
@@ -65,6 +65,59 @@ const MoodCanvas: React.FC<{ gradientKey: string; emoji: string }> = ({ gradient
       >
         <Text style={{ fontSize: 96, lineHeight: 112 }}>{emoji}</Text>
       </LinearGradient>
+    </View>
+  );
+};
+
+// Photo carousel for posts with mediaUrls. Single photo renders full-bleed
+// at the post's aspect ratio; multiple photos get a horizontal pager with a
+// dot indicator like Instagram.
+const PhotoCarousel: React.FC<{ urls: string[] }> = ({ urls }) => {
+  const [index, setIndex] = useState(0);
+  const width = Dimensions.get('window').width - 40 /* horizontal feed padding */ - 28 /* card padding */;
+  const height = Math.round(width * 1.25); // 4:5 portrait, IG-style
+
+  if (urls.length === 1) {
+    return (
+      <View
+        style={{
+          marginTop: 12,
+          borderRadius: radius.lg,
+          overflow: 'hidden',
+          backgroundColor: color.bg.elevated,
+        }}
+      >
+        <Image source={{ uri: urls[0] }} style={{ width: '100%', height }} resizeMode="cover" />
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ marginTop: 12 }}>
+      <ScrollView
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={(e) => setIndex(Math.round(e.nativeEvent.contentOffset.x / width))}
+        style={{ borderRadius: radius.lg, overflow: 'hidden' }}
+      >
+        {urls.map((u) => (
+          <Image key={u} source={{ uri: u }} style={{ width, height }} resizeMode="cover" />
+        ))}
+      </ScrollView>
+      <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 8, gap: 5 }}>
+        {urls.map((_, i) => (
+          <View
+            key={i}
+            style={{
+              width: i === index ? 14 : 6,
+              height: 6,
+              borderRadius: 3,
+              backgroundColor: i === index ? color.violet : color.stroke.mid,
+            }}
+          />
+        ))}
+      </View>
     </View>
   );
 };
@@ -218,7 +271,10 @@ export const PostCard: React.FC<Props> = ({ post, onPressAuthor, onToggleLike, o
         </View>
       ) : null}
 
-      {post.kind === 'MOOD' && post.gradient && post.emoji ? (
+      {/* Photos always win over the gradient canvas when present. */}
+      {post.mediaUrls && post.mediaUrls.length > 0 ? (
+        <PhotoCarousel urls={post.mediaUrls} />
+      ) : post.kind === 'MOOD' && post.gradient && post.emoji ? (
         <MoodCanvas gradientKey={post.gradient} emoji={post.emoji} />
       ) : null}
 

@@ -4,6 +4,7 @@ import { config } from './config.js';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
 import accountRoutes from './routes/accounts.js';
+import uploadRoutes from './routes/uploads.js';
 import eventRoutes from './routes/events.js';
 import partyRoutes from './routes/parties.js';
 import communityRoutes from './routes/community.js';
@@ -20,6 +21,7 @@ app.get('/health', (_req, res) => res.json({ ok: true, service: 'layla-backend' 
 app.use('/auth', authRoutes);
 app.use('/users', userRoutes);
 app.use('/accounts', accountRoutes);
+app.use('/uploads', uploadRoutes);
 app.use('/events', eventRoutes);
 app.use('/parties', partyRoutes);
 app.use('/community', communityRoutes);

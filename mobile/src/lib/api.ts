@@ -173,7 +173,14 @@ export const api = {
 
   updateMyAccount: (
     token: string,
-    data: Partial<{ handle: string; displayName: string; bio: string | null; avatarColor: string | null; isPrivate: boolean }>,
+    data: Partial<{
+      handle: string;
+      displayName: string;
+      bio: string | null;
+      avatarColor: string | null;
+      avatarUrl: string | null;
+      isPrivate: boolean;
+    }>,
   ) =>
     request<{ account: Account }>('/accounts/me', {
       method: 'PATCH',
@@ -210,6 +217,22 @@ export const api = {
       `/accounts/handle-available/${handle.toLowerCase()}`,
       { token },
     ),
+
+  // ── Cloudinary signed upload ───────────────────────────────
+  signUpload: (token: string, kind: 'avatar' | 'post' | 'story') =>
+    request<{
+      cloudName: string;
+      apiKey: string;
+      timestamp: number;
+      signature: string;
+      folder: string;
+      publicId: string;
+      uploadUrl: string;
+    }>('/uploads/sign', {
+      method: 'POST',
+      token,
+      body: JSON.stringify({ kind }),
+    }),
 
   createAccount: (
     token: string,
@@ -513,6 +536,7 @@ export type Post = {
   vibes: string[];
   gradient: string | null;
   emoji: string | null;
+  mediaUrls: string[];
   venueEvent: PostVenue | null;
   createdAt: string;
   likeCount: number;
@@ -533,6 +557,7 @@ export type StorySegment = {
   id: string;
   gradient: string;
   emoji: string;
+  mediaUrl: string | null;
   caption: string | null;
   createdAt: string;
   expiresAt: string;

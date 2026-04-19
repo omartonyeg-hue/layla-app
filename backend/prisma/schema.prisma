@@ -262,9 +262,13 @@ model Post {
   // REVIEW-only:
   stars          Int?     // 1–5
   vibes          String[] @default([])
-  // MOOD (or any visual post) — gradient token key + centered emoji glyph.
+  // MOOD (or any visual post) — gradient token key + centered emoji glyph
+  // when no photos are attached. If mediaUrls has entries, the card renders
+  // those instead of the gradient canvas.
   gradient       String?
   emoji          String?
+  // Cloudinary secure_urls, ordered (index 0 is the cover for carousel).
+  mediaUrls      String[] @default([])
   // Optional venue/event reference for reviews or mood posts tied to a venue.
   venueEvent     Event?   @relation(fields: [venueEventId], references: [id])
   venueEventId   String?
@@ -310,8 +314,11 @@ model Story {
   id        String   @id @default(cuid())
   author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
   authorId  String
+  // Gradient/emoji are the fallback canvas for stories without photos. When
+  // mediaUrl is set, the viewer renders that instead.
   gradient  String
   emoji     String
+  mediaUrl  String?
   caption   String?
   createdAt DateTime @default(now())
   expiresAt DateTime

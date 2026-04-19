@@ -113,6 +113,7 @@ const MePatchBody = z.object({
   displayName: z.string().trim().min(1).max(40).optional(),
   bio: z.string().trim().max(160).nullable().optional(),
   avatarColor: z.string().regex(/^#?[0-9A-Fa-f]{6}$/).nullable().optional(),
+  avatarUrl: z.string().url().startsWith('https://res.cloudinary.com/').nullable().optional(),
   isPrivate: z.boolean().optional(),
 });
 
@@ -133,6 +134,7 @@ router.patch('/me', async (req, res) => {
         : `#${parsed.data.avatarColor}`
       : null;
   }
+  if (parsed.data.avatarUrl !== undefined) data.avatarUrl = parsed.data.avatarUrl;
   if (parsed.data.isPrivate !== undefined) data.isPrivate = parsed.data.isPrivate;
 
   if (parsed.data.handle !== undefined) {

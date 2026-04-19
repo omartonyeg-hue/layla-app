@@ -6,6 +6,7 @@ import {
   Animated,
   Dimensions,
   StatusBar,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -108,12 +109,21 @@ export const StoryViewer: React.FC<Props> = ({ navigation, route }) => {
     <View style={{ flex: 1, backgroundColor: '#000' }}>
       <StatusBar barStyle="light-content" backgroundColor="#000" />
 
-      <LinearGradient
-        colors={gradientConfig.colors}
-        start={gradientConfig.start}
-        end={gradientConfig.end}
-        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: W, height: H }}
-      />
+      {/* Photo if present, otherwise the gradient+emoji canvas is our fallback. */}
+      {segment.mediaUrl ? (
+        <Image
+          source={{ uri: segment.mediaUrl }}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: W, height: H }}
+          resizeMode="cover"
+        />
+      ) : (
+        <LinearGradient
+          colors={gradientConfig.colors}
+          start={gradientConfig.start}
+          end={gradientConfig.end}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: W, height: H }}
+        />
+      )}
       {/* Darken top + bottom for readability */}
       <LinearGradient
         pointerEvents="none"
@@ -220,18 +230,21 @@ export const StoryViewer: React.FC<Props> = ({ navigation, route }) => {
             style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: W * 0.3 }}
           />
 
-          <View pointerEvents="none" style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-            <Text
-              style={{
-                fontSize: 140,
-                lineHeight: 160,
-                textShadowColor: 'rgba(0,0,0,0.35)',
-                textShadowRadius: 20,
-              }}
-            >
-              {segment.emoji}
-            </Text>
-          </View>
+          {/* Emoji glyph is only the hero when there's no photo backing. */}
+          {!segment.mediaUrl ? (
+            <View pointerEvents="none" style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+              <Text
+                style={{
+                  fontSize: 140,
+                  lineHeight: 160,
+                  textShadowColor: 'rgba(0,0,0,0.35)',
+                  textShadowRadius: 20,
+                }}
+              >
+                {segment.emoji}
+              </Text>
+            </View>
+          ) : null}
 
           {/* Caption */}
           {segment.caption ? (

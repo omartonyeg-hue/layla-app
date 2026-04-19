@@ -7,16 +7,18 @@ import {
   ScrollView,
   ActivityIndicator,
   Animated,
+  Image,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { color, fontFamily, radius } from '../theme/tokens';
-import { Micro, Body, Button, DisplayHeadline } from '../components';
+import { Micro, Body, Button, DisplayHeadline, Avatar, MediaPickerSheet } from '../components';
 import { api, ApiError, type MyAccount } from '../lib/api';
 import { useSession } from '../lib/AuthContext';
 import { useToast } from '../lib/toast';
 import { useKeyboardHeight } from '../lib/useKeyboardHeight';
 import { haptic } from '../lib/haptics';
+import { pickAndUpload, type PickSource } from '../lib/upload';
 import type { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AccountEdit'>;
@@ -42,6 +44,13 @@ export const AccountEdit: React.FC<Props> = ({ navigation }) => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Avatar upload — optimistic: the URL is saved to Account via PATCH /me
+  // as soon as Cloudinary returns. Separate from the Save button so users
+  // don't lose their change if they navigate away after uploading.
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
   useEffect(() => {
     (async () => {
       try {
@@ -50,11 +59,33 @@ export const AccountEdit: React.FC<Props> = ({ navigation }) => {
         setHandle(account.handle);
         setDisplayName(account.displayName);
         setBio(account.bio ?? '');
+        setAvatarUrl(account.avatarUrl);
       } catch (err) {
         setError(err instanceof ApiError ? err.message : 'Network error');
       }
     })();
   }, [token]);
+
+  const uploadAvatar = async (source: PickSource) => {
+    if (uploadingAvatar) return;
+    setUploadingAvatar(true);
+    try {
+      const asset = await pickAndUpload(token, source, 'avatar');
+      if (!asset) return;
+      const { account: updated } = await api.updateMyAccount(token, { avatarUrl: asset.url });
+      setAvatarUrl(updated.avatarUrl);
+      setAccount((prev) => (prev ? { ...prev, avatarUrl: updated.avatarUrl } : prev));
+      toast.show({ message: 'Photo updated', tone: 'violet', icon: '✓' });
+    } catch (err) {
+      toast.show({
+        message: err instanceof Error ? err.message : 'Upload failed',
+        tone: 'rose',
+        icon: '!',
+      });
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   // Debounced handle availability check — fires after the user stops typing.
   useEffect(() => {
@@ -160,6 +191,65 @@ export const AccountEdit: React.FC<Props> = ({ navigation }) => {
             <ActivityIndicator color={color.violet} style={{ marginTop: 40 }} />
           ) : (
             <>
+              {/* Avatar tile */}
+              <View style={{ alignItems: 'center', marginTop: 4 }}>
+                <Pressable
+                  onPress={() => { haptic.tap(); setPickerOpen(true); }}
+                  disabled={uploadingAvatar}
+                  style={({ pressed }) => ({
+                    width: 112,
+                    height: 112,
+                    borderRadius: 56,
+                    overflow: 'hidden',
+                    borderWidth: 2,
+                    borderColor: color.stroke.mid,
+                    backgroundColor: color.bg.surface,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    opacity: pressed ? 0.85 : 1,
+                  })}
+                >
+                  {avatarUrl ? (
+                    <Image source={{ uri: avatarUrl }} style={{ width: '100%', height: '100%' }} />
+                  ) : (
+                    <Avatar
+                      name={displayName || 'U'}
+                      color={account.avatarColor ?? color.gold[500]}
+                      size={106}
+                    />
+                  )}
+                  {uploadingAvatar ? (
+                    <View
+                      style={{
+                        position: 'absolute',
+                        top: 0, left: 0, right: 0, bottom: 0,
+                        alignItems: 'center', justifyContent: 'center',
+                        backgroundColor: 'rgba(7,6,13,0.6)',
+                      }}
+                    >
+                      <ActivityIndicator color={color.text.primary} />
+                    </View>
+                  ) : null}
+                </Pressable>
+                <Pressable
+                  onPress={() => { haptic.tap(); setPickerOpen(true); }}
+                  disabled={uploadingAvatar}
+                  style={({ pressed }) => ({ marginTop: 10, opacity: pressed ? 0.6 : 1 })}
+                >
+                  <Text
+                    style={{
+                      color: color.violet,
+                      fontSize: 12,
+                      fontWeight: '800',
+                      letterSpacing: 0.6,
+                      fontFamily: fontFamily.body,
+                    }}
+                  >
+                    CHANGE PHOTO
+                  </Text>
+                </Pressable>
+              </View>
+
               {/* Username */}
               <View>
                 <Micro size="sm" color={color.text.muted} style={{ marginBottom: 8 }}>USERNAME</Micro>
@@ -285,6 +375,13 @@ export const AccountEdit: React.FC<Props> = ({ navigation }) => {
           SAVE →
         </Button>
       </Animated.View>
+
+      <MediaPickerSheet
+        visible={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onPick={uploadAvatar}
+        title="CHANGE PROFILE PHOTO"
+      />
     </View>
   );
 };
